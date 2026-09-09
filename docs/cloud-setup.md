@@ -24,7 +24,7 @@ download.pytorch.org
 ### Environment variables
 
 ```
-ANTHROPIC_API_KEY=<값>
+PIPELINE_ANTHROPIC_API_KEY=<값>
 OPENAI_API_KEY=<값>
 WHISPER_MODEL=small
 WHISPER_DEVICE=cpu
@@ -32,6 +32,7 @@ OCR_INTERVAL=1.0
 VIDEO_CODEC=libx264
 ```
 
+- `PIPELINE_ANTHROPIC_API_KEY`: 클라우드 세션은 `ANTHROPIC_API_KEY`라는 이름을 Claude Code 자체 인증용으로 예약해 세션 환경에 넘겨주지 않는다(2026-09-10 확인). 파이프라인은 `PIPELINE_ANTHROPIC_API_KEY`를 먼저 읽으므로 이 이름으로 넣는다. PC의 `.env`에서는 기존 `ANTHROPIC_API_KEY`도 그대로 동작
 - `WHISPER_MODEL=small`: CPU에서 large-v3는 50초 영상에 수 분 이상 걸린다. 테스트는 small, 품질이 필요하면 medium
 - `OCR_INTERVAL=1.0`: CPU OCR 부담을 줄이기 위해 검사 간격을 기본 0.5초에서 1초로
 - `VIDEO_CODEC=libx264`: NVENC 없음
