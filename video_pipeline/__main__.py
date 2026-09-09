@@ -11,6 +11,7 @@ import sys
 from pathlib import Path
 
 from .config import PipelineConfig
+from .drive_upload import folder_id_from, upload_outputs
 from .pipeline import VIDEO_EXTS, process_video
 from .utils import log, setup_logging
 
@@ -30,6 +31,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--mute-spoken-pii", action="store_true", help="말로 나온 개인정보 음소거")
     p.add_argument("--image-provider", choices=["auto", "openai", "placeholder"])
     p.add_argument("--fresh", action="store_true", help="캐시 무시하고 처음부터")
+    p.add_argument("--drive-folder", help="결과(mp4·srt·md)를 올릴 Google Drive 폴더 ID 또는 URL (GDRIVE_SERVICE_ACCOUNT_JSON 필요)")
     p.add_argument("-v", "--verbose", action="store_true")
     return p
 
@@ -59,6 +61,8 @@ def apply_args(cfg: PipelineConfig, a: argparse.Namespace) -> PipelineConfig:
         cfg.image_provider = a.image_provider
     if a.fresh:
         cfg.reuse_cache = False
+    if a.drive_folder:
+        cfg.drive_folder = a.drive_folder
     return cfg
 
 
@@ -85,13 +89,20 @@ def main(argv=None) -> int:
         return 1
     failed = 0
     steps = [s.strip() for s in a.steps.split(",")] if a.steps else None
+    folder = folder_id_from(cfg.drive_folder)
     for v in videos:
         try:
+            from .pipeline import Job
             if steps:
-                from .pipeline import Job
-                Job(v, cfg).run(steps, force=True)
+                job = Job(v, cfg)
+                job.run(steps, force=True)
             else:
                 process_video(v, cfg)
+                job = Job(v, cfg)
+            if folder:
+                log.info("  ▶ Google Drive 업로드")
+                for f in upload_outputs([job.out_video, job.out_srt, job.out_report], folder):
+                    log.info(f"    {f.get('name')} → {f.get('webViewLink')}")
         except Exception as e:
             failed += 1
             log.exception(f"실패: {v.name} — {e}")

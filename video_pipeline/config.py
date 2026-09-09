@@ -96,6 +96,7 @@ class PipelineConfig:
     work_dir: Path = field(default_factory=lambda: Path(_env("WORK_DIR", str(ROOT / "work"))))
     upload_dir: Path = field(default_factory=lambda: Path(_env("UPLOAD_DIR", str(ROOT / "uploads"))))
     reuse_cache: bool = True
+    drive_folder: str = _env("GDRIVE_FOLDER_ID", "")   # 결과를 올릴 Google Drive 폴더 ID (서비스 계정)
     web_port: int = _env("WEB_PORT", 8766)   # 8765는 이 PC의 다른 앱(autotube)이 사용 중
 
     def update(self, **kw) -> "PipelineConfig":

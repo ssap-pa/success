@@ -83,7 +83,25 @@ python -m video_pipeline samples/test_50s.mp4 --steps cut,plan
 python -m video_pipeline samples/test_50s.mp4 --steps assets,pii,render
 ```
 
-결과는 `output/`에 생기며 저장소에는 올라가지 않는다. 결과 영상을 받으려면 세션에서 PR 브랜치에 `output/`을 예외적으로 포함시키거나, `_report.md`와 `_edited.srt`만 확인한다.
+결과는 `output/`에 생기며 저장소에는 올라가지 않는다. 세션의 파일 전송은 30MiB 한도라 4K 결과는 못 돌려준다. 결과 영상을 받는 방법은 아래 4번(Drive 업로드).
+
+## 4. 결과를 Google Drive로 받기 (서비스 계정)
+
+1. Google Cloud 콘솔 → 프로젝트 → **Drive API 사용 설정** → 서비스 계정 생성 → JSON 키 발급
+2. Drive에서 결과 받을 폴더를 서비스 계정 이메일(`client_email`, `…@….iam.gserviceaccount.com`)에 **편집자**로 공유
+3. 환경변수 `GDRIVE_SERVICE_ACCOUNT_JSON` 에 JSON 본문 전체를 넣는다 (파일 경로도 가능)
+4. 실행:
+
+```bash
+python -m video_pipeline uploads/영상.mp4 --drive-folder <폴더ID 또는 폴더URL>
+# 또는 GDRIVE_FOLDER_ID=<폴더ID> 환경변수
+```
+
+렌더가 끝나면 `_edited.mp4`, `_edited.srt`, `_report.md` 세 파일을 resumable 업로드로 올리고 링크를 로그에 남긴다.
+
+- 폴더 404: 폴더를 서비스 계정에 공유하지 않았거나 ID가 틀림
+- `storageQuotaExceeded`: 서비스 계정에 저장 용량이 없어 개인 My Drive 폴더에 파일을 만들 수 없는 경우. 공유 드라이브(Workspace)를 쓰거나 OAuth 사용자 인증으로 바꿔야 한다
+- 입력 영상이 Drive 공유 링크면 `drive.google.com/uc?export=download&id=<ID>` 확인 페이지의 form 값(id, export, confirm, uuid)으로 `drive.usercontent.google.com/download` 를 curl 하면 받아진다. 서비스 계정이 파일을 볼 수 있게 공유돼 있으면 `https://www.googleapis.com/drive/v3/files/<ID>?alt=media` 로도 받을 수 있다
 
 ## 예상 소요 (50초 영상, CPU 기준, 대략)
 
