@@ -156,3 +156,30 @@ def upload_outputs(paths: list[Path], folder_id: str) -> list[dict]:
         if Path(p).is_file():
             out.append(upload_file(Path(p), folder_id, session))
     return out
+
+
+def main(argv=None) -> int:
+    """명령줄: 결과 파일을 Drive 폴더에 올리거나(--folder) 기존 파일 내용을 교체(--replace)한다."""
+    import argparse
+
+    p = argparse.ArgumentParser(prog="python -m video_pipeline.drive_upload",
+                                description="Google Drive 업로드 (서비스 계정)")
+    p.add_argument("paths", nargs="+", help="올릴 파일")
+    g = p.add_mutually_exclusive_group(required=True)
+    g.add_argument("--folder", help="새 파일로 올릴 폴더 ID 또는 URL (서비스 계정에 저장 용량이 있어야 함)")
+    g.add_argument("--replace", help="내용을 교체할 기존 파일 ID (파일 하나만, 소유자·ID 유지)")
+    a = p.parse_args(argv)
+
+    if a.replace:
+        if len(a.paths) != 1:
+            p.error("--replace 는 파일 하나만 받습니다.")
+        info = replace_file_content(Path(a.paths[0]), a.replace)
+        print(f"{info.get('name')} → {info.get('webViewLink')}")
+        return 0
+    for info in upload_outputs([Path(x) for x in a.paths], folder_id_from(a.folder)):
+        print(f"{info.get('name')} → {info.get('webViewLink')}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -126,3 +126,28 @@ python -m video_pipeline uploads/영상.mp4 --drive-folder <폴더ID 또는 폴�
 - `libGL.so.1` 오류: `libgl1` 미설치
 - openai 401/연결 오류: API credentials 호스트 오타 또는 api.openai.com 미허용
 - 메모리 초과로 종료: `WHISPER_MODEL=small` 확인, `OCR_MAX_WIDTH=960`으로 낮춤
+
+## 5. 서비스 계정에 저장 용량이 없을 때 (4K 결과를 사용자 폴더에 넣기)
+
+서비스 계정은 `storageQuota.limit=0`이라 사용자 My Drive 폴더에 **새 파일을 만들면** `403 Service Accounts do not have storage quota`가 난다.
+대신 사용자가 소유한 빈 파일의 **내용만 교체**하면 용량이 소유자에게 계산되어 올라간다.
+
+1. Drive MCP(`create_file`) 또는 Drive 화면에서 결과 폴더에 빈 파일(예: `0908-복사_edited.mp4`, 내용 아무거나)을 만든다. 폴더가 서비스 계정에 편집자로 공유돼 있으면 그 파일도 편집 가능하다
+2. 그 파일 ID로 내용을 교체한다:
+
+```bash
+python -m video_pipeline.drive_upload output/영상_edited.mp4 --replace <파일ID>
+```
+
+클라우드 세션의 자동 권한 분류기가 이 호출을 막으면, 사용자가 프로젝트 설정 `.claude/settings.json`에 아래 허용 규칙을 넣고 새 세션을 연다 (AI가 스스로 권한 규칙을 쓰는 것은 막혀 있다):
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m video_pipeline *)",
+      "Bash(python -m video_pipeline.drive_upload *)"
+    ]
+  }
+}
+```
