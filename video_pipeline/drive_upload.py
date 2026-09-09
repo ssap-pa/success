@@ -92,8 +92,34 @@ def upload_file(path: Path, folder_id: str, session=None, name: str | None = Non
     )
     if r.status_code != 200:
         raise RuntimeError(f"Drive 업로드 세션 생성 실패: {_err(r)}")
-    upload_uri = r.headers["Location"]
+    return _send_chunks(path, r.headers["Location"], session)
 
+
+def replace_file_content(path: Path, file_id: str, session=None) -> dict:
+    """이미 있는 Drive 파일의 내용을 이 파일로 교체한다 (resumable, 소유자·ID 유지).
+
+    서비스 계정은 저장 용량이 0이라 새 파일을 만들 수 없다(403 storageQuotaExceeded).
+    대신 사용자가(또는 Drive MCP가) 만든 빈 파일의 내용을 서비스 계정이 채우면
+    용량은 파일 소유자에게 계산되므로 영상도 올릴 수 있다.
+    """
+    path = Path(path)
+    session = session or _session()
+    size = path.stat().st_size
+    mime = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+    r = session.patch(
+        f"{UPLOAD_URL}/{file_id}",
+        params={"uploadType": "resumable", "supportsAllDrives": "true",
+                "fields": "id,name,size,webViewLink"},
+        headers={"X-Upload-Content-Type": mime, "X-Upload-Content-Length": str(size)},
+        json={}, timeout=60,
+    )
+    if r.status_code != 200:
+        raise RuntimeError(f"Drive 내용 교체 세션 생성 실패 ({file_id}): {_err(r)}")
+    return _send_chunks(path, r.headers["Location"], session)
+
+
+def _send_chunks(path: Path, upload_uri: str, session) -> dict:
+    size = path.stat().st_size
     sent = 0
     with path.open("rb") as f:
         while sent < size:
