@@ -1,5 +1,6 @@
 - [유튜브 자동 편집 파이프라인](project-video-pipeline.md) — success/video_pipeline 구조, PC 환경 제약(pip --user, API 키 없음, BOM)
 - [OCR 속도 피드백](feedback-ocr-speed.md) — 1440p 화면녹화 입력, OCR 느림·오탐 지적 → 축소/정적 건너뛰기로 6배 개선
 - [컷 렌더 OOM](feedback-cut-render-oom.md) — 4K에서 trim+concat 메모리 폭주 → select/aselect 단일 패스로 교체
+- [클라우드 결과 전달](reference-cloud-delivery.md) — Drive 다운로드 curl 경로, Drive MCP는 텍스트만 업로드 가능, 파일 전송 한도 30MiB
 - [GitHub 저장소](reference-github-repo.md) — ssap-pa/success_test 비공개, docs/ai-context 동기화 규칙
 - [지식창고 저장소](reference-knowledge-db-repo.md) — ssap-pa/DB 구조, ssapable 창고는 재승인 전까지 사용 금지, adsense는 사용 가능
