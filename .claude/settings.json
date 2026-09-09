@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m video_pipeline *)",
+      "Bash(python -m video_pipeline.drive_upload *)"
+    ]
+  }
+}
