@@ -13,3 +13,4 @@ metadata:
 - **결과 영상 전체(4K)를 받는 경로 (2026-09-09 추가):** `video_pipeline/drive_upload.py` — 서비스 계정(`GDRIVE_SERVICE_ACCOUNT_JSON`)으로 Drive API resumable 업로드. `--drive-folder <ID|URL>` 또는 `GDRIVE_FOLDER_ID`. 폴더를 서비스 계정 이메일에 편집자로 공유해야 한다. 사용자는 이 변수 이름으로 환경에 넣었다고 함. 새 환경변수는 실행 중인 세션에 안 들어오고 새 세션에만 적용된다.
 - 클라우드 VM의 시스템 `cryptography`는 `_cffi_backend`가 없어 import 시 패닉 → `pip install cffi`로 해결(requirements에 포함).
 - 클라우드 VM 메모리 한도(cgroup)는 약 12GB 지점에서 OOM kill. 관련: [[feedback-cut-render-oom]]
+- **환경변수 입력 형식 (2026-09-09 추가):** claude.ai/code 환경변수 칸은 줄마다 `KEY=value` 하나만 받는다. 서비스 계정 JSON을 여러 줄로 붙여 넣으면 `Couldn't parse ""type": "service_account",". Use KEY=value format.` 오류. 한 줄 JSON(`json.dumps`)으로 넣거나 `base64 -w0 key.json` 결과를 넣는다. `drive_upload._load_service_account`가 base64도 받도록 고쳤다. 실제로 한 번은 `private_key_id`(40자 16진수)만 들어가 있어 로더가 실패했다. 값을 출력하지 말고 길이·문자 종류만 확인해 진단한다.

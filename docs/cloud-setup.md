@@ -89,7 +89,12 @@ python -m video_pipeline samples/test_50s.mp4 --steps assets,pii,render
 
 1. Google Cloud 콘솔 → 프로젝트 → **Drive API 사용 설정** → 서비스 계정 생성 → JSON 키 발급
 2. Drive에서 결과 받을 폴더를 서비스 계정 이메일(`client_email`, `…@….iam.gserviceaccount.com`)에 **편집자**로 공유
-3. 환경변수 `GDRIVE_SERVICE_ACCOUNT_JSON` 에 JSON 본문 전체를 넣는다 (파일 경로도 가능)
+3. 환경변수 `GDRIVE_SERVICE_ACCOUNT_JSON` 에 JSON 본문 전체를 **한 줄로** 넣는다 (파일 경로도 가능)
+   - 환경변수 입력칸은 줄마다 `KEY=value` 하나로 읽으므로 JSON 파일을 여러 줄 그대로 붙여 넣으면
+     `Couldn't parse ""type": "service_account",". Use KEY=value format.` 오류가 난다
+   - 한 줄로 만들기: `python -c "import json,sys;print(json.dumps(json.load(open(sys.argv[1],encoding='utf-8'))))" key.json`
+   - 또는 base64 한 줄도 된다: `base64 -w0 key.json` (Git Bash). 로더가 JSON → 파일 경로 → base64 순으로 시도한다
+   - `private_key_id`(40자 16진수) 한 필드만 넣으면 안 된다. 파일 내용 전체여야 한다
 4. 실행:
 
 ```bash

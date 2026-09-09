@@ -1,7 +1,7 @@
 """결과 파일을 Google Drive 폴더에 올린다 (서비스 계정, resumable 업로드).
 
 설정:
-  GDRIVE_SERVICE_ACCOUNT_JSON  서비스 계정 키 JSON 본문 또는 JSON 파일 경로
+  GDRIVE_SERVICE_ACCOUNT_JSON  서비스 계정 키 JSON 본문(한 줄), 그 base64 인코딩, 또는 JSON 파일 경로
   GDRIVE_FOLDER_ID             올릴 폴더 ID (또는 --drive-folder)
 
 폴더는 서비스 계정 이메일(client_email)에 편집자로 공유돼 있어야 한다.
@@ -10,6 +10,8 @@
 """
 from __future__ import annotations
 
+import base64
+import binascii
 import json
 import mimetypes
 import os
@@ -43,7 +45,17 @@ def _load_service_account() -> dict:
     p = Path(raw)
     if p.is_file():
         return json.loads(p.read_text(encoding="utf-8"))
-    raise RuntimeError("GDRIVE_SERVICE_ACCOUNT_JSON 은 JSON 본문이거나 존재하는 파일 경로여야 합니다.")
+    # 환경변수 칸이 여러 줄을 못 받는 경우를 위해 base64 한 줄(`base64 -w0 key.json`)도 허용
+    try:
+        decoded = base64.b64decode(raw, validate=True).decode("utf-8")
+        if decoded.lstrip().startswith("{"):
+            return json.loads(decoded)
+    except (binascii.Error, UnicodeDecodeError, ValueError):
+        pass
+    raise RuntimeError(
+        "GDRIVE_SERVICE_ACCOUNT_JSON 은 JSON 본문(한 줄), 그 base64, 또는 존재하는 파일 경로여야 합니다. "
+        f"(현재 값: {len(raw)}자, JSON도 base64도 파일 경로도 아님)"
+    )
 
 
 def _session():
