@@ -232,6 +232,9 @@ def ensure_transparent(img: Image.Image) -> Image.Image:
     img = img.convert("RGBA")
     arr = np.asarray(img).astype(np.int16)
     if arr[:, :, 3].min() < 250:
+        # gpt-image-1 투명 출력은 가장자리 1px가 반투명(알파 80~110)으로 남아
+        # 스티커 테두리 단계에서 흰 사각 프레임이 생긴다 → 바깥 2px 알파를 0으로
+        arr[:2, :, 3] = 0; arr[-2:, :, 3] = 0; arr[:, :2, 3] = 0; arr[:, -2:, 3] = 0
         arr[:, :, 3] = np.where(arr[:, :, 3] < 40, 0, arr[:, :, 3])   # 거의 투명한 노이즈 제거
         out = Image.fromarray(arr.astype(np.uint8), "RGBA")
     else:

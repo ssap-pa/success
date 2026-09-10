@@ -13,3 +13,5 @@ success 폴더는 2026-09-11부터 GitHub **공개** 저장소 **https://github.
 - `CLAUDE.md`(클로드 코드용)와 `agent.md`(다른 AI 도구용)가 저장소 루트에 있다. 프로젝트 규칙이 바뀌면 둘 다 갱신한다.
 
 관련: [[project-video-pipeline]]
+
+**2026-09-10 저장소 이동:** `ssap-pa/success_test`(비공개)가 사라지고(404/403) 별도 이력의 **공개** 저장소 `ssap-pa/success`가 생겼다. 클라우드 세션 커밋 16개를 `success/main` 위에 cherry-pick 해 `claude/cloud-pipeline-fx` 브랜치로 푸시, PR #1 초안. 세션에서 새 저장소에 푸시하려면 사용자가 Claude GitHub 앱 설치 대상에 그 저장소를 추가해야 한다(add_repo 만으로는 읽기만 됨). 공개 저장소이므로 개인정보·키·영상 커밋 금지.

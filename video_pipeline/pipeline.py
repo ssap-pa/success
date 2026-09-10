@@ -111,7 +111,20 @@ class Job:
             else:
                 tr = transcribe(self.p_wav, self.cfg)
                 save_json(self.p_tr, tr)
-        self._memo["transcript"] = tr
+        self._memo["transcript"] = self._fix(tr)
+        return self._memo["transcript"]
+
+    @property
+    def fixes(self) -> dict[str, str]:
+        from .transcribe import parse_fixes
+        return parse_fixes(self.cfg.transcript_fixes)
+
+    def _fix(self, tr: Transcript) -> Transcript:
+        """사용자가 지정한 전사 교정(--fix)을 적용한다. 캐시된 대본에도 매번 적용되므로 멱등."""
+        fx = self.fixes
+        if fx:
+            tr.apply_fixes(fx)
+            log.info(f"  전사 교정 {len(fx)}개 적용: " + ", ".join(f"{k}→{v}" for k, v in fx.items()))
         return tr
 
     def ensure_transcript(self) -> Transcript:
@@ -120,7 +133,7 @@ class Job:
         if self.p_tr.exists() and self.cfg.reuse_cache:
             if self.info["has_audio"] and not self.p_wav.exists():
                 extract_audio(self.src, self.p_wav)
-            self._memo["transcript"] = Transcript.from_dict(load_json(self.p_tr))
+            self._memo["transcript"] = self._fix(Transcript.from_dict(load_json(self.p_tr)))
             return self._memo["transcript"]
         return self.step_transcribe(force=not self.cfg.reuse_cache)
 
@@ -159,7 +172,14 @@ class Job:
             d = load_json(self.p_cuts)
             cp = CutPlan([Removal(**r) for r in d["removals"]], [tuple(k) for k in d["keeps"]],
                          d["summary"]["original_duration"], d["summary"]["new_duration"])
-            self._memo["cut"] = (cp, Transcript.from_dict(load_json(self.p_tr_cut)), self.p_cut_hash.read_text())
+            tr_cut = self._fix(Transcript.from_dict(load_json(self.p_tr_cut)))
+            if self.fixes:
+                for r in cp.removals:
+                    for k, v in self.fixes.items():
+                        r.text = (r.text or "").replace(k, v)
+                if tr_cut.segments:
+                    _write_srt(tr_cut, self.out_srt)     # 교정된 대본으로 자막 파일 갱신
+            self._memo["cut"] = (cp, tr_cut, self.p_cut_hash.read_text())
             return self._memo["cut"]
         self.step_cut(force=not self.cfg.reuse_cache)
         return self._memo["cut"]
@@ -255,17 +275,41 @@ class Job:
     # ── 6. 최종 렌더 + 리포트 ─────────────────────────────
     def step_render(self, force: bool = False) -> dict:
         t0 = time.time()
-        cut_plan, _, _ = self.ensure_cut()
+        cut_plan, tr_cut, _ = self.ensure_cut()
         plan = self.ensure_assets() if (self.cfg.illustrations or self.cfg.overlays) else Plan()
         regions = self.ensure_pii()
         scenes = plan.scenes if self.cfg.illustrations else []
         overlays = plan.overlays if self.cfg.overlays else []
         mute = [(p.start, p.end) for p in plan.spoken_pii] if self.cfg.mute_spoken_pii else []
+        fx_events = []
+        if self.cfg.fx:
+            from .fx import load_fx
+            fx_events = load_fx(self.work / "fx.json")
+        captions = [e for e in fx_events if e.kind == "caption"]
+        tr_sub = tr_cut
+        if self.cfg.subtitle_tone and tr_cut.segments:
+            from .subtitles import tone_transcript
+            tr_sub = tone_transcript(tr_cut, self.cfg, self.work / f"tone_{self.cfg.subtitle_tone}.json")
+            _write_srt(tr_sub, self.out_srt)         # 배포 자막은 변환된 말투로
+        ass = None
+        want_subs = bool(self.cfg.subtitle_style and self.cfg.subtitle_style != "none")
+        if want_subs or captions:
+            from .subtitles import build_ass
+            cut_info = probe(self.p_cut)
+            ass = build_ass(tr_sub if want_subs else Transcript(), cut_info["width"], cut_info["height"],
+                            self.cfg, self.work / "subtitles.ass", captions=captions)
         from .render import render_final
-        with Timer("최종 렌더 (모자이크 + 일러스트 + 오버레이)"):
-            render_final(self.p_cut, self.out_video, scenes, overlays, regions, mute, self.cfg)
+        with Timer("최종 렌더 (모자이크 + 일러스트 + 오버레이" + (" + 자막" if ass else "")
+                   + (" + 예능 효과" if fx_events else "") + ")"):
+            render_final(self.p_cut, self.out_video, scenes, overlays, regions, mute, self.cfg,
+                         ass_path=ass, fx_events=fx_events)
         report = {
             "input": str(self.src), "output": str(self.out_video), "info": self.info,
+            "subtitles": self.cfg.subtitle_style if want_subs else "",
+            "subtitle_tone": self.cfg.subtitle_tone if (self.cfg.subtitle_tone and want_subs) else "",
+            "transcribe_provider": self.cfg.transcribe_provider,
+            "fx": [{"kind": e.kind, "start": e.start, "end": e.end, "text": e.text} for e in fx_events],
+            "subtitle_emphasis": [w.strip() for w in (self.cfg.subtitle_emphasis or "").split(",") if w.strip()] if ass else [],
             "warnings": list(dict.fromkeys(self.warnings)),
             "cuts": cut_plan.summary(), "new_duration": round(self._cut_duration(), 2),
             "srt": str(self.out_srt) if self.out_srt.exists() else "",
@@ -328,7 +372,21 @@ def _report_md(rep: dict, cut_plan: CutPlan, plan: Plan) -> str:
          f"- 결과 영상: `{rep['output']}`",
          f"- 길이: {fmt_clock(c['original_duration'])} → {fmt_clock(c['new_duration'])} "
          f"({c['removed_seconds']}초 단축, 컷 {c['cuts']}개)",
-         f"- 처리 시간: {rep['elapsed_sec']}초", ""]
+         f"- 처리 시간: {rep['elapsed_sec']}초"]
+    if rep.get("subtitles"):
+        names = {"variety": "예능 자막(흑백요리사 풍: 굵은 고딕·검정 외곽선·노란 강조)", "clean": "담백한 흰 자막"}
+        emph = ", ".join(rep.get("subtitle_emphasis") or [])
+        L.append(f"- 자막 번인: {names.get(rep['subtitles'], rep['subtitles'])}" + (f" / 강조어: {emph}" if emph else ""))
+    if rep.get("subtitle_tone"):
+        L.append(f"- 자막 말투: {rep['subtitle_tone']} (원문 대본은 work/transcript_cut.json, 변환 결과는 work/tone_*.json)")
+    if rep.get("transcribe_provider") == "openai":
+        L.append("- 전사: OpenAI whisper-1 API")
+    if rep.get("fx"):
+        kinds = {"zoom": "급 줌인", "flash": "흑백 플래시+두둥", "caption": "임팩트 자막"}
+        L.append("- 예능 효과: " + ", ".join(
+            f"{fmt_clock(e['start'])} {kinds.get(e['kind'], e['kind'])}" + (f"「{e['text']}」" if e.get('text') else "")
+            for e in rep["fx"]))
+    L.append("")
     if rep.get("warnings"):
         L += ["## 주의", *[f"- {w}" for w in rep["warnings"]], ""]
 

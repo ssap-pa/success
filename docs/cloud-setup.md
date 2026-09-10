@@ -24,7 +24,7 @@ download.pytorch.org
 ### Environment variables
 
 ```
-ANTHROPIC_API_KEY=<값>
+PIPELINE_ANTHROPIC_API_KEY=<값>
 OPENAI_API_KEY=<값>
 WHISPER_MODEL=small
 WHISPER_DEVICE=cpu
@@ -32,6 +32,7 @@ OCR_INTERVAL=1.0
 VIDEO_CODEC=libx264
 ```
 
+- `PIPELINE_ANTHROPIC_API_KEY`: 클라우드 세션은 `ANTHROPIC_API_KEY`라는 이름을 Claude Code 자체 인증용으로 예약해 세션 환경에 넘겨주지 않는다(2026-09-10 확인). 파이프라인은 `PIPELINE_ANTHROPIC_API_KEY`를 먼저 읽으므로 이 이름으로 넣는다. PC의 `.env`에서는 기존 `ANTHROPIC_API_KEY`도 그대로 동작
 - `WHISPER_MODEL=small`: CPU에서 large-v3는 50초 영상에 수 분 이상 걸린다. 테스트는 small, 품질이 필요하면 medium
 - `OCR_INTERVAL=1.0`: CPU OCR 부담을 줄이기 위해 검사 간격을 기본 0.5초에서 1초로
 - `VIDEO_CODEC=libx264`: NVENC 없음
@@ -45,8 +46,8 @@ Pro/Max 플랜이면 OPENAI 키는 **API credentials** 칸에 호스트 `api.ope
 #!/bin/bash
 set -e
 export DEBIAN_FRONTEND=noninteractive
-(sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg libgl1 libglib2.0-0) \
-  || (apt-get update -qq && apt-get install -y -qq ffmpeg libgl1 libglib2.0-0)
+(sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg libgl1 libglib2.0-0 fonts-nanum fonts-nanum-extra) \
+  || (apt-get update -qq && apt-get install -y -qq ffmpeg libgl1 libglib2.0-0 fonts-nanum fonts-nanum-extra)
 python -m pip install --upgrade pip -q
 python -m pip install -q torch torchvision --index-url https://download.pytorch.org/whl/cpu
 python -m pip install -q -r requirements.txt
@@ -83,7 +84,30 @@ python -m video_pipeline samples/test_50s.mp4 --steps cut,plan
 python -m video_pipeline samples/test_50s.mp4 --steps assets,pii,render
 ```
 
-결과는 `output/`에 생기며 저장소에는 올라가지 않는다. 결과 영상을 받으려면 세션에서 PR 브랜치에 `output/`을 예외적으로 포함시키거나, `_report.md`와 `_edited.srt`만 확인한다.
+결과는 `output/`에 생기며 저장소에는 올라가지 않는다. 세션의 파일 전송은 30MiB 한도라 4K 결과는 못 돌려준다. 결과 영상을 받는 방법은 아래 4번(Drive 업로드).
+
+## 4. 결과를 Google Drive로 받기 (서비스 계정)
+
+1. Google Cloud 콘솔 → 프로젝트 → **Drive API 사용 설정** → 서비스 계정 생성 → JSON 키 발급
+2. Drive에서 결과 받을 폴더를 서비스 계정 이메일(`client_email`, `…@….iam.gserviceaccount.com`)에 **편집자**로 공유
+3. 환경변수 `GDRIVE_SERVICE_ACCOUNT_JSON` 에 JSON 본문 전체를 **한 줄로** 넣는다 (파일 경로도 가능)
+   - 환경변수 입력칸은 줄마다 `KEY=value` 하나로 읽으므로 JSON 파일을 여러 줄 그대로 붙여 넣으면
+     `Couldn't parse ""type": "service_account",". Use KEY=value format.` 오류가 난다
+   - 한 줄로 만들기: `python -c "import json,sys;print(json.dumps(json.load(open(sys.argv[1],encoding='utf-8'))))" key.json`
+   - 또는 base64 한 줄도 된다: `base64 -w0 key.json` (Git Bash). 로더가 JSON → 파일 경로 → base64 순으로 시도한다
+   - `private_key_id`(40자 16진수) 한 필드만 넣으면 안 된다. 파일 내용 전체여야 한다
+4. 실행:
+
+```bash
+python -m video_pipeline uploads/영상.mp4 --drive-folder <폴더ID 또는 폴더URL>
+# 또는 GDRIVE_FOLDER_ID=<폴더ID> 환경변수
+```
+
+렌더가 끝나면 `_edited.mp4`, `_edited.srt`, `_report.md` 세 파일을 resumable 업로드로 올리고 링크를 로그에 남긴다.
+
+- 폴더 404: 폴더를 서비스 계정에 공유하지 않았거나 ID가 틀림
+- `storageQuotaExceeded`: 서비스 계정에 저장 용량이 없어 개인 My Drive 폴더에 파일을 만들 수 없는 경우. 공유 드라이브(Workspace)를 쓰거나 OAuth 사용자 인증으로 바꿔야 한다
+- 입력 영상이 Drive 공유 링크면 `drive.google.com/uc?export=download&id=<ID>` 확인 페이지의 form 값(id, export, confirm, uuid)으로 `drive.usercontent.google.com/download` 를 curl 하면 받아진다. 서비스 계정이 파일을 볼 수 있게 공유돼 있으면 `https://www.googleapis.com/drive/v3/files/<ID>?alt=media` 로도 받을 수 있다
 
 ## 예상 소요 (50초 영상, CPU 기준, 대략)
 
@@ -103,3 +127,28 @@ python -m video_pipeline samples/test_50s.mp4 --steps assets,pii,render
 - `libGL.so.1` 오류: `libgl1` 미설치
 - openai 401/연결 오류: API credentials 호스트 오타 또는 api.openai.com 미허용
 - 메모리 초과로 종료: `WHISPER_MODEL=small` 확인, `OCR_MAX_WIDTH=960`으로 낮춤
+
+## 5. 서비스 계정에 저장 용량이 없을 때 (4K 결과를 사용자 폴더에 넣기)
+
+서비스 계정은 `storageQuota.limit=0`이라 사용자 My Drive 폴더에 **새 파일을 만들면** `403 Service Accounts do not have storage quota`가 난다.
+대신 사용자가 소유한 빈 파일의 **내용만 교체**하면 용량이 소유자에게 계산되어 올라간다.
+
+1. Drive MCP(`create_file`) 또는 Drive 화면에서 결과 폴더에 빈 파일(예: `0908-복사_edited.mp4`, 내용 아무거나)을 만든다. 폴더가 서비스 계정에 편집자로 공유돼 있으면 그 파일도 편집 가능하다
+2. 그 파일 ID로 내용을 교체한다:
+
+```bash
+python -m video_pipeline.drive_upload output/영상_edited.mp4 --replace <파일ID>
+```
+
+클라우드 세션의 자동 권한 분류기가 이 호출을 막으면, 사용자가 프로젝트 설정 `.claude/settings.json`에 아래 허용 규칙을 넣고 새 세션을 연다 (AI가 스스로 권한 규칙을 쓰는 것은 막혀 있다):
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m video_pipeline *)",
+      "Bash(python -m video_pipeline.drive_upload *)"
+    ]
+  }
+}
+```

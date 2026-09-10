@@ -1,6 +1,6 @@
 """1차 컷 편집: 무음 구간 축소 + 추임새(필러워드)/말더듬 제거.
 
-원본 타임라인에서 '제거 구간'을 계산하고, 그 여집합인 '유지 구간'을 ffmpeg trim+concat으로 이어붙인다.
+원본 타임라인에서 '제거 구간'을 계산하고, 그 여집합인 '유지 구간'을 ffmpeg select/aselect로 한 번에 이어붙인다 (trim+concat은 4K에서 메모리 폭주).
 TimeMap은 원본 시간 → 편집본 시간 변환을 담당한다 (자막·설명 화면 위치 계산에 사용).
 """
 from __future__ import annotations
@@ -243,19 +243,13 @@ def render_cut(src: Path, keeps: list[tuple[float, float]], dst: Path, cfg, has_
         run([FFMPEG, "-y", "-v", "error", "-i", src, "-c", "copy", dst])
         return dst
 
-    lines, vlabels, alabels = [], [], []
-    for i, (s, e) in enumerate(keeps):
-        lines.append(f"[0:v]trim=start={s:.4f}:end={e:.4f},setpts=PTS-STARTPTS[v{i}];")
-        vlabels.append(f"[v{i}]")
-        if has_audio:
-            lines.append(f"[0:a]atrim=start={s:.4f}:end={e:.4f},asetpts=PTS-STARTPTS[a{i}];")
-            alabels.append(f"[a{i}]")
-    n = len(keeps)
+    # trim+concat 방식은 concat이 첫 구간을 내보내는 동안 뒤 구간의 프레임을 전부 메모리에 쌓아
+    # 4K 영상에서 수십 GB를 먹고 OOM으로 죽는다. select/aselect는 한 스트림을 한 번만 훑으며
+    # 유지 구간만 통과시키므로 메모리가 일정하다.
+    expr = "+".join(f"between(t\\,{s:.4f}\\,{e:.4f})" for s, e in keeps)
+    lines = [f"[0:v]select='{expr}',setpts=N/FRAME_RATE/TB[outv]"]
     if has_audio:
-        inter = "".join(v + a for v, a in zip(vlabels, alabels))
-        lines.append(f"{inter}concat=n={n}:v=1:a=1[outv][outa]")
-    else:
-        lines.append(f"{''.join(vlabels)}concat=n={n}:v=1:a=0[outv]")
+        lines.append(f";[0:a]aselect='{expr}',asetpts=N/SR/TB[outa]")
     script = dst.with_suffix(".filter.txt")
     script.write_text("\n".join(lines), encoding="utf-8")
 

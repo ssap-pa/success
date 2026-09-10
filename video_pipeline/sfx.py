@@ -43,7 +43,26 @@ def whoosh(dur: float, gain: float = 0.7, rising: bool = True) -> np.ndarray:
     return out * env * gain * 3.0
 
 
+def dudung(gain: float = 1.0) -> np.ndarray:
+    """저음 '두둥' — 55Hz 근처 사인 두 번 + 짧은 노이즈 타격."""
+    def hit(f: float, dur: float, g: float) -> np.ndarray:
+        n = int(SR * dur)
+        t = np.arange(n) / SR
+        freq = f * (1 + 0.6 * np.exp(-t * 30))          # 피치가 살짝 떨어지는 드럼 느낌
+        phase = 2 * np.pi * np.cumsum(freq) / SR
+        body = np.sin(phase) * _env(n, 0.003, dur * 0.3)
+        rng = np.random.default_rng(3)
+        click = rng.standard_normal(n).astype(np.float32) * _env(n, 0.001, 0.012) * 0.25
+        return ((body + click) * g).astype(np.float32)
+    first = hit(58, 0.42, 1.0)
+    second = hit(52, 0.75, 1.15)
+    gap = np.zeros(int(SR * 0.16), dtype=np.float32)
+    return np.concatenate([first, gap, second]) * gain
+
+
 SOUNDS = {
+    "dudung": dudung(1.0),
+    "whip": np.concatenate([whoosh(0.14, 0.9, rising=True), pop(900, 1500, 0.05, 0.4)]),
     "in_small": pop(420, 980, 0.11, 0.9),
     "out_small": pop(880, 380, 0.10, 0.7),
     "in_big": np.concatenate([whoosh(0.22, 0.5, rising=True), pop(300, 720, 0.13, 0.9)]),

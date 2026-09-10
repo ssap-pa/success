@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -15,6 +16,17 @@ class Word:
     end: float
     text: str
     prob: float = 1.0
+
+
+def parse_fixes(spec: str) -> dict[str, str]:
+    """'잘못=바름,잘못2=바름2' → {'잘못': '바름', ...}. 빈 항목·'=' 없는 항목은 무시."""
+    out: dict[str, str] = {}
+    for item in (spec or "").split(","):
+        if "=" in item:
+            k, v = item.split("=", 1)
+            if k.strip():
+                out[k.strip()] = v.strip()
+    return out
 
 
 @dataclass
@@ -40,6 +52,54 @@ class Transcript:
 
     def text(self) -> str:
         return " ".join(s.text.strip() for s in self.segments)
+
+    def apply_fixes(self, fixes: dict[str, str]) -> "Transcript":
+        """전사 오류 교정을 단어·문장에 모두 적용한다. 긴 키부터 치환하고,
+        바로 뒤에 붙은 조사는 새 단어의 받침에 맞춰 바꾼다(뱃살은→곰돌이는, 뱃살이야→곰돌이야)."""
+        if not fixes:
+            return self
+        for wrong, right in sorted(fixes.items(), key=lambda kv: -len(kv[0])):
+            for s in self.segments:
+                s.text = fix_text(s.text, wrong, right)
+            for w in self.words:
+                w.text = fix_text(w.text, wrong, right)
+        return self
+
+
+# 받침 유무에 따라 짝이 바뀌는 조사: (받침 있을 때, 없을 때)
+_PARTICLES = [("이야", "야"), ("이랑", "랑"), ("으로", "로"), ("은", "는"), ("을", "를"),
+              ("이", "가"), ("과", "와"), ("아", "야")]
+
+
+def _has_batchim(text: str) -> bool | None:
+    """마지막 글자가 한글이면 받침 유무, 아니면 None."""
+    if not text:
+        return None
+    code = ord(text[-1]) - 0xAC00
+    if 0 <= code < 11172:
+        return code % 28 != 0
+    return None
+
+
+def fix_text(text: str, wrong: str, right: str) -> str:
+    """text 안의 wrong 을 right 로 바꾸고, 뒤따르는 조사를 right 의 받침에 맞춘다."""
+    if wrong not in text:
+        return text
+    batchim = _has_batchim(right)
+    alts = "|".join(re.escape(a) for pair in _PARTICLES for a in pair)
+    pattern = re.compile(re.escape(wrong) + r"(" + alts + r")?(?=$|[\s,.!?])")
+
+    def repl(m: re.Match) -> str:
+        p = m.group(1) or ""
+        if p and batchim is not None:
+            for with_b, without_b in _PARTICLES:
+                if p in (with_b, without_b):
+                    p = with_b if batchim else without_b
+                    break
+        return right + p
+
+    out = pattern.sub(repl, text)
+    return out.replace(wrong, right)   # 조사 없이 단어 중간에 있는 경우
 
 
 def extract_audio(video: Path, wav: Path) -> Path:
@@ -98,6 +158,49 @@ def _load_model(cfg):
 
 
 def transcribe(wav: Path, cfg) -> Transcript:
+    if getattr(cfg, "transcribe_provider", "local") == "openai":
+        return transcribe_openai(wav, cfg)
+    return transcribe_local(wav, cfg)
+
+
+def transcribe_openai(wav: Path, cfg) -> Transcript:
+    """OpenAI 음성 API(whisper-1)로 전사. 단어 타임스탬프를 주므로 컷 편집에 그대로 쓸 수 있다.
+    GPU 없는 클라우드 세션에서 로컬 whisper(CPU 44초+)보다 훨씬 빠르다."""
+    import openai
+
+    model = getattr(cfg, "openai_transcribe_model", "whisper-1")
+    log.info(f"  OpenAI 전사: {model}")
+    client = openai.OpenAI()
+    with open(wav, "rb") as f:
+        resp = client.audio.transcriptions.create(
+            model=model, file=f, language=cfg.language, response_format="verbose_json",
+            timestamp_granularities=["word", "segment"],
+        )
+    tr = Transcript(language=getattr(resp, "language", None) or cfg.language)
+    for seg in getattr(resp, "segments", None) or []:
+        d = seg if isinstance(seg, dict) else seg.model_dump()
+        text = (d.get("text") or "").strip()
+        if text:
+            tr.segments.append(Segment(float(d["start"]), float(d["end"]), text))
+    for w in getattr(resp, "words", None) or []:
+        d = w if isinstance(w, dict) else w.model_dump()
+        text = (d.get("word") or "").strip()
+        if text:
+            tr.words.append(Word(float(d["start"]), float(d["end"]), text, 1.0))
+    if not tr.segments and tr.words:   # 문장 정보가 없으면 단어를 2.5초 단위로 묶는다
+        cur: list[Word] = []
+        for w in tr.words:
+            if cur and (w.end - cur[0].start > 2.5):
+                tr.segments.append(Segment(cur[0].start, cur[-1].end, " ".join(x.text for x in cur)))
+                cur = []
+            cur.append(w)
+        if cur:
+            tr.segments.append(Segment(cur[0].start, cur[-1].end, " ".join(x.text for x in cur)))
+    log.info(f"  전사 완료: 문장 {len(tr.segments)}개, 단어 {len(tr.words)}개")
+    return tr
+
+
+def transcribe_local(wav: Path, cfg) -> Transcript:
     model = _load_model(cfg)
     segments_iter, info = model.transcribe(
         str(wav),

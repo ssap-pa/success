@@ -141,8 +141,12 @@ def _format_transcript(tr: Transcript) -> str:
 def make_plan(tr: Transcript, duration: float, cfg) -> Plan:
     if not tr.segments:
         return Plan(skipped_reason="전사 결과가 비어 있어 기획을 건너뜀")
-    if not (os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN")):
-        log.warning("  ANTHROPIC_API_KEY가 설정되지 않아 설명 화면 기획을 건너뜁니다. (설정에서 키를 넣어 주세요)")
+    # 클라우드 세션(claude.ai/code)은 ANTHROPIC_API_KEY 환경변수를 Claude Code 인증용으로 예약해
+    # 세션에 넘겨주지 않는다. 그 경우 PIPELINE_ANTHROPIC_API_KEY 로 넣으면 여기서 우선 사용한다.
+    api_key = os.environ.get("PIPELINE_ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")
+    if not (api_key or os.environ.get("ANTHROPIC_AUTH_TOKEN")):
+        log.warning("  ANTHROPIC_API_KEY가 설정되지 않아 설명 화면 기획을 건너뜁니다. "
+                    "(설정에서 키를 넣어 주세요. 클라우드 세션은 PIPELINE_ANTHROPIC_API_KEY)")
         return Plan(skipped_reason="ANTHROPIC_API_KEY 없음")
 
     max_scenes = max(1, math.ceil(duration / 60.0 * cfg.max_scenes_per_min))
@@ -154,7 +158,7 @@ def make_plan(tr: Transcript, duration: float, cfg) -> Plan:
     )
     try:
         import anthropic
-        client = anthropic.Anthropic()
+        client = anthropic.Anthropic(api_key=api_key) if api_key else anthropic.Anthropic()
         with client.messages.stream(
             model=cfg.claude_model,
             max_tokens=16000,
