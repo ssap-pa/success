@@ -255,17 +255,24 @@ class Job:
     # ── 6. 최종 렌더 + 리포트 ─────────────────────────────
     def step_render(self, force: bool = False) -> dict:
         t0 = time.time()
-        cut_plan, _, _ = self.ensure_cut()
+        cut_plan, tr_cut, _ = self.ensure_cut()
         plan = self.ensure_assets() if (self.cfg.illustrations or self.cfg.overlays) else Plan()
         regions = self.ensure_pii()
         scenes = plan.scenes if self.cfg.illustrations else []
         overlays = plan.overlays if self.cfg.overlays else []
         mute = [(p.start, p.end) for p in plan.spoken_pii] if self.cfg.mute_spoken_pii else []
+        ass = None
+        if self.cfg.subtitle_style and self.cfg.subtitle_style != "none":
+            from .subtitles import build_ass
+            cut_info = probe(self.p_cut)
+            ass = build_ass(tr_cut, cut_info["width"], cut_info["height"], self.cfg, self.work / "subtitles.ass")
         from .render import render_final
-        with Timer("최종 렌더 (모자이크 + 일러스트 + 오버레이)"):
-            render_final(self.p_cut, self.out_video, scenes, overlays, regions, mute, self.cfg)
+        with Timer("최종 렌더 (모자이크 + 일러스트 + 오버레이" + (" + 자막" if ass else "") + ")"):
+            render_final(self.p_cut, self.out_video, scenes, overlays, regions, mute, self.cfg, ass_path=ass)
         report = {
             "input": str(self.src), "output": str(self.out_video), "info": self.info,
+            "subtitles": self.cfg.subtitle_style if ass else "",
+            "subtitle_emphasis": [w.strip() for w in (self.cfg.subtitle_emphasis or "").split(",") if w.strip()] if ass else [],
             "warnings": list(dict.fromkeys(self.warnings)),
             "cuts": cut_plan.summary(), "new_duration": round(self._cut_duration(), 2),
             "srt": str(self.out_srt) if self.out_srt.exists() else "",
@@ -328,7 +335,12 @@ def _report_md(rep: dict, cut_plan: CutPlan, plan: Plan) -> str:
          f"- 결과 영상: `{rep['output']}`",
          f"- 길이: {fmt_clock(c['original_duration'])} → {fmt_clock(c['new_duration'])} "
          f"({c['removed_seconds']}초 단축, 컷 {c['cuts']}개)",
-         f"- 처리 시간: {rep['elapsed_sec']}초", ""]
+         f"- 처리 시간: {rep['elapsed_sec']}초"]
+    if rep.get("subtitles"):
+        names = {"variety": "예능 자막(흑백요리사 풍: 굵은 고딕·검정 외곽선·노란 강조)", "clean": "담백한 흰 자막"}
+        emph = ", ".join(rep.get("subtitle_emphasis") or [])
+        L.append(f"- 자막 번인: {names.get(rep['subtitles'], rep['subtitles'])}" + (f" / 강조어: {emph}" if emph else ""))
+    L.append("")
     if rep.get("warnings"):
         L += ["## 주의", *[f"- {w}" for w in rep["warnings"]], ""]
 

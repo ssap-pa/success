@@ -32,6 +32,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--image-provider", choices=["auto", "openai", "placeholder"])
     p.add_argument("--fresh", action="store_true", help="캐시 무시하고 처음부터")
     p.add_argument("--drive-folder", help="결과(mp4·srt·md)를 올릴 Google Drive 폴더 ID 또는 URL (GDRIVE_SERVICE_ACCOUNT_JSON 필요)")
+    p.add_argument("--subtitles", choices=["none", "variety", "clean"],
+                   help="자막 번인: variety=흑백요리사 풍 예능 자막(굵은 고딕·검정 외곽선·노란 강조), clean=담백한 흰 자막")
+    p.add_argument("--subtitle-emphasis", help="노란색으로 강조할 단어, 쉼표 구분 (예: 뱃살,마오차)")
     p.add_argument("-v", "--verbose", action="store_true")
     return p
 
@@ -63,6 +66,10 @@ def apply_args(cfg: PipelineConfig, a: argparse.Namespace) -> PipelineConfig:
         cfg.reuse_cache = False
     if a.drive_folder:
         cfg.drive_folder = a.drive_folder
+    if a.subtitles:
+        cfg.subtitle_style = a.subtitles
+    if a.subtitle_emphasis:
+        cfg.subtitle_emphasis = a.subtitle_emphasis
     return cfg
 
 

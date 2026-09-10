@@ -130,12 +130,13 @@ def _fade(t, start, end, fade):
 # ── 렌더 ─────────────────────────────────────────────────────
 
 def render_final(cut_video: Path, out: Path, scenes: list[Scene], overlays: list[Overlay],
-                 regions: list[Region], mute_ranges: list[tuple[float, float]], cfg) -> Path:
+                 regions: list[Region], mute_ranges: list[tuple[float, float]], cfg,
+                 ass_path: Path | None = None) -> Path:
     out.parent.mkdir(parents=True, exist_ok=True)
     info = probe(cut_video)
     W, H, fps, duration = info["width"], info["height"], info["fps"], info["duration"]
 
-    if not scenes and not overlays and not regions and not mute_ranges:
+    if not scenes and not overlays and not regions and not mute_ranges and not ass_path:
         log.info("  덧입힐 요소가 없어 컷 편집본을 결과로 사용합니다.")
         shutil.copyfile(cut_video, out)
         return out
@@ -164,21 +165,32 @@ def render_final(cut_video: Path, out: Path, scenes: list[Scene], overlays: list
            "-i", str(cut_video)]
     if sfx_path:
         cmd += ["-i", str(sfx_path)]
-    cmd += ["-map", "0:v:0", *codec_args(cfg)]
-
-    afilters = []
+    # 필터 그래프: 자막(libass)은 가공 프레임 위에, 오디오는 음소거·효과음 믹스
+    graph, vmap = [], "0:v:0"
+    if ass_path:
+        from .subtitles import ffmpeg_filter_arg
+        graph.append(f"[0:v:0]ass={ffmpeg_filter_arg(ass_path)}[vout]")
+        vmap = "[vout]"
+        log.info("  자막 번인: " + ass_path.name)
+    amap, aextra = None, []
     if info["has_audio"]:
         mute = ",".join(f"volume=enable='between(t,{s:.3f},{e:.3f})':volume=0" for s, e in mute_ranges) or "anull"
         if sfx_path:
-            afilters = [f"[1:a]{mute}[a0]", "[2:a]anull[a1]",
-                        "[a0][a1]amix=inputs=2:duration=first:normalize=0[aout]"]
-            cmd += ["-filter_complex", ";".join(afilters), "-map", "[aout]", "-c:a", "aac", "-b:a", "192k"]
+            graph += [f"[1:a]{mute}[a0]", "[2:a]anull[a1]",
+                      "[a0][a1]amix=inputs=2:duration=first:normalize=0[aout]"]
+            amap, aextra = "[aout]", ["-c:a", "aac", "-b:a", "192k"]
         elif mute_ranges:
-            cmd += ["-map", "1:a:0", "-af", mute, "-c:a", "aac", "-b:a", "192k"]
+            graph.append(f"[1:a:0]{mute}[aout]")
+            amap, aextra = "[aout]", ["-c:a", "aac", "-b:a", "192k"]
         else:
-            cmd += ["-map", "1:a:0", "-c:a", "copy"]
+            amap, aextra = "1:a:0", ["-c:a", "copy"]
     elif sfx_path:
-        cmd += ["-map", "2:a:0", "-c:a", "aac", "-b:a", "128k"]
+        amap, aextra = "2:a:0", ["-c:a", "aac", "-b:a", "128k"]
+    if graph:
+        cmd += ["-filter_complex", ";".join(graph)]
+    cmd += ["-map", vmap, *codec_args(cfg)]
+    if amap:
+        cmd += ["-map", amap, *aextra]
     cmd += ["-shortest", "-movflags", "+faststart", str(out)]
 
     proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)

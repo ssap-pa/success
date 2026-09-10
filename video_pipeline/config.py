@@ -61,6 +61,9 @@ class PipelineConfig:
     anim_out: float = 0.25                                      # 퇴장 애니메이션(초)
     sfx: bool = _env("SFX", True)                               # 등장/퇴장 효과음
     sfx_volume: float = _env("SFX_VOLUME", 0.35)
+    subtitle_style: str = _env("SUBTITLE_STYLE", "none")       # none | variety(흑백요리사 풍 예능 자막) | clean
+    subtitle_font: str = _env("SUBTITLE_FONT", "")             # 비우면 스타일 기본 폰트 (NanumSquare ExtraBold)
+    subtitle_emphasis: str = _env("SUBTITLE_EMPHASIS", "")     # 노란색 강조어, 쉼표 구분
     scene_min_dur: float = 4.0
     scene_max_dur: float = 8.0
     fade: float = 0.4

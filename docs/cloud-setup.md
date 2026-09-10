@@ -46,8 +46,8 @@ Pro/Max 플랜이면 OPENAI 키는 **API credentials** 칸에 호스트 `api.ope
 #!/bin/bash
 set -e
 export DEBIAN_FRONTEND=noninteractive
-(sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg libgl1 libglib2.0-0) \
-  || (apt-get update -qq && apt-get install -y -qq ffmpeg libgl1 libglib2.0-0)
+(sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg libgl1 libglib2.0-0 fonts-nanum fonts-nanum-extra) \
+  || (apt-get update -qq && apt-get install -y -qq ffmpeg libgl1 libglib2.0-0 fonts-nanum fonts-nanum-extra)
 python -m pip install --upgrade pip -q
 python -m pip install -q torch torchvision --index-url https://download.pytorch.org/whl/cpu
 python -m pip install -q -r requirements.txt

@@ -22,3 +22,5 @@ metadata:
 - `.bat`는 CP949로 저장하고 `chcp 65001`을 쓰지 않는다 (UTF-8+chcp 조합은 cmd가 배치 파일을 잘못 읽어 서버가 안 뜸, 2026-09-11 확인). 웹앱은 소스 변경 시 자동 재시작(종료 코드 3 → web.bat 루프).
 
 **How to apply:** 이어서 작업할 때 위 제약을 전제로 하고, 테스트는 `samples/test_video.mp4` (SAPI Heami TTS + drawtext 개인정보 오버레이)로 하면 30초 안에 끝난다.
+
+**자막 번인 (2026-09-10 추가):** 사용자가 '흑백요리사 스타일 예능 자막'을 요청 → `video_pipeline/subtitles.py`가 컷 편집본 대본으로 ASS를 만들고 `render_final`이 ffmpeg `ass` 필터(libass)로 프레임에 입힌다. 스타일 `variety`: NanumSquare ExtraBold, 화면 높이 6.4%, 검정 외곽선 0.7%, 반투명 그림자, 하단 중앙, `\fad(60,60)`+88→100% 팝. 강조어(`--subtitle-emphasis`)는 노란색(&H0000E5FF). 짧은 자막은 0.8초로 늘리고 20자 넘으면 가운데 띄어쓰기에서 두 줄. 클라우드 VM에는 한글 굵은 폰트가 없어 `fonts-nanum fonts-nanum-extra`를 apt로 설치해야 한다(setup script에 추가). `-ss`를 입력 옵션으로 두고 프레임을 뽑으면 타임스탬프가 0부터 시작해 자막이 안 보이니 `-copyts`를 붙여 확인한다.
