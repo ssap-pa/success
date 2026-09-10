@@ -37,6 +37,8 @@ API 키는 `.env`(`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`). 없으면 해당 단�
 - 로그는 `video_pipeline.utils.log` 로거만 쓴다. 웹앱이 이 로거를 잡아 화면에 보여준다.
 - 한국어 UI·로그·주석. 코드 식별자는 영어.
 - ffmpeg 필터가 길어지면 `-filter_complex_script` 파일로 넘긴다(Windows 명령줄 길이 제한).
+- `.bat` 파일은 CP949(ANSI) 인코딩으로 저장하고 `chcp 65001`을 넣지 않는다. UTF-8 배치 파일은 cmd가 잘못 읽는다.
+- 웹앱은 소스 변경 시 스스로 재시작한다(`web/server.py`의 `_watch_sources`, 종료 코드 3을 `web.bat`이 받아 재실행). 작업 실행 중에는 끝날 때까지 기다린다.
 
 ## 확정된 사용자 요구 (임의로 바꾸지 않는다)
 

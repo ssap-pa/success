@@ -115,7 +115,39 @@ def index():
 @app.get("/api/version")
 def api_version():
     from video_pipeline import __version__
-    return jsonify({"version": __version__, "started": _STARTED})
+    return jsonify({"version": __version__, "started": _STARTED, "reload_pending": _reload["pending"],
+                    "auto_reload": _reload["enabled"]})
+
+
+# ── 소스 변경 감지 → 유휴 시 자동 재시작 ──────────────────────
+_reload = {"enabled": os.environ.get("AUTO_RELOAD", "1") != "0", "pending": False}
+RELOAD_EXIT_CODE = 3          # web.bat 이 이 코드를 보면 다시 실행한다
+
+
+def _source_files() -> dict[str, float]:
+    files = list((ROOT / "video_pipeline").glob("*.py")) + list((ROOT / "web").glob("*.py"))
+    return {str(p): p.stat().st_mtime for p in files if p.exists()}
+
+
+def _watch_sources():
+    snapshot = _source_files()
+    while True:
+        time.sleep(2.0)
+        try:
+            now = _source_files()
+        except Exception:
+            continue
+        if now != snapshot:
+            snapshot = now
+            time.sleep(1.5)                       # 저장이 여러 번 연달아 일어나는 경우 대비
+            snapshot = _source_files()
+            _reload["pending"] = True
+            log.info("코드 변경 감지 → " + ("현재 작업이 끝나면 " if _job["status"] == "running" else "")
+                     + "웹앱을 자동 재시작합니다")
+        if _reload["pending"] and _job["status"] != "running":
+            time.sleep(1.0)                       # 진행 중인 응답이 끝날 시간
+            print("\n  [자동 재시작] 코드가 바뀌어 웹앱을 다시 켭니다.\n", flush=True)
+            os._exit(RELOAD_EXIT_CODE)
 
 
 @app.get("/files/output/<path:name>")
@@ -364,8 +396,11 @@ def main():
         print(f"\n  [!] {port} 포트를 이미 다른 프로그램(이전에 켠 웹앱일 가능성이 큼)이 쓰고 있습니다.")
         print("      web.bat 으로 실행하면 이전 웹앱을 자동으로 종료합니다. 또는 그 창을 닫고 다시 실행하세요.\n")
         sys.exit(1)
-    print(f"\n  유튜브 자동 편집 웹앱: {url}   (시작 {_STARTED})\n  (종료: Ctrl+C)\n")
-    if os.environ.get("NO_BROWSER") != "1":
+    print(f"\n  유튜브 자동 편집 웹앱: {url}   (시작 {_STARTED})\n  (종료: Ctrl+C)")
+    if _reload["enabled"]:
+        print("  코드를 고치면 자동으로 다시 켜집니다 (web.bat 으로 실행했을 때). 브라우저도 자동 새로고침.\n")
+        threading.Thread(target=_watch_sources, daemon=True).start()
+    if os.environ.get("NO_BROWSER") != "1" and os.environ.get("WEB_RESTARTED") != "1":
         threading.Timer(1.0, lambda: webbrowser.open(url)).start()
     app.run(host="127.0.0.1", port=port, threaded=True, debug=False)
 

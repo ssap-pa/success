@@ -1,12 +1,11 @@
 @echo off
-chcp 65001 >nul
 cd /d "%~dp0"
 if "%~1"=="" (
-  echo ì‚¬ìš©ë²•: run.bat ì˜ìƒíŒŒì¼.mp4  ^(ë˜ëŠ” ì˜ìƒ íŒŒì¼ì„ ì´ ë°°ì¹˜íŒŒì¼ ìœ„ë¡œ ë“œë˜ê·¸^)
+  echo »ç¿ë¹ı: run.bat ¿µ»óÆÄÀÏ.mp4  ^(¶Ç´Â ¿µ»ó ÆÄÀÏÀ» ÀÌ ¹èÄ¡ÆÄÀÏ À§·Î µå·¡±×^)
   pause
   exit /b 1
 )
 python -m video_pipeline %*
 echo.
-echo ê²°ê³¼ëŠ” output í´ë”ì— ìˆìŠµë‹ˆë‹¤.
+echo °á°ú´Â output Æú´õ¿¡ ÀÖ½À´Ï´Ù.
 pause

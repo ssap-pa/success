@@ -1,6 +1,5 @@
 @echo off
-chcp 65001 >nul
 cd /d "%~dp0"
-echo inbox í´ë”ë¥¼ ê°ì‹œí•©ë‹ˆë‹¤. ì˜ìƒì„ inbox í´ë”ì— ë„£ìœ¼ë©´ ìžë™ íŽ¸ì§‘ë©ë‹ˆë‹¤.
+echo inbox Æú´õ¸¦ °¨½ÃÇÕ´Ï´Ù. ¿µ»óÀ» inbox Æú´õ¿¡ ³ÖÀ¸¸é ÀÚµ¿ ÆíÁýµË´Ï´Ù.
 python watch_inbox.py
 pause

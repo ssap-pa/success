@@ -378,7 +378,7 @@ async function clearCache() {
 async function loadSettings() {
   const s = await (await fetch("/api/settings")).json();
   $("gpu").textContent = "장치: " + s.gpu;
-  try { const v = await (await fetch("/api/version")).json(); $("gpu").textContent += ` · 서버 시작 ${v.started.slice(11, 16)}`; } catch (e) {}
+  try { const v = await (await fetch("/api/version")).json(); serverStarted = v.started; $("gpu").textContent += ` · 서버 시작 ${v.started.slice(11, 16)}`; } catch (e) {}
   $("k_anth").textContent = s.ANTHROPIC_API_KEY.set ? `설정됨 (${s.ANTHROPIC_API_KEY.masked})` : "없음 → 기획 단계를 건너뜀";
   $("k_oai").textContent = s.OPENAI_API_KEY.set ? `설정됨 (${s.OPENAI_API_KEY.masked})` : "없음 → 플레이스홀더 그림";
   const d = s.defaults;
@@ -397,6 +397,19 @@ async function saveSettings() {
   $("ANTHROPIC_API_KEY").value = ""; $("OPENAI_API_KEY").value = "";
   loadSettings();
 }
+
+// ── 서버 재시작 감지 → 자동 새로고침 ──────
+let serverStarted = null, serverDown = false;
+setInterval(async () => {
+  try {
+    const v = await (await fetch("/api/version", {cache: "no-store"})).json();
+    if (serverStarted && v.started !== serverStarted) { location.reload(); return; }
+    if (serverDown) { location.reload(); return; }
+    serverStarted = serverStarted || v.started;
+    const badge = $("gpu");
+    if (v.reload_pending && !badge.textContent.includes("재시작 대기")) badge.textContent += " · 코드 변경 감지, 작업 후 재시작 대기";
+  } catch (e) { serverDown = true; }
+}, 3000);
 
 // ── 시작 ──────────────────────────────────
 loadSettings(); loadVideos().then(() => { if (videos.length) select(videos[0]); });

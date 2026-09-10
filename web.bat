@@ -1,8 +1,15 @@
 @echo off
-chcp 65001 >nul
 cd /d "%~dp0"
-echo ì´ì „ì— ì¼œ ë‘” ì›¹ì•±ì´ ìˆìœ¼ë©´ ì¢…ë£Œí•©ë‹ˆë‹¤...
+echo ÀÌÀü¿¡ ÄÑ µĞ À¥¾ÛÀÌ ÀÖÀ¸¸é Á¾·áÇÕ´Ï´Ù...
 powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \"Name='python.exe'\" | Where-Object { $_.CommandLine -like '*-m web.server*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"
-echo ì›¹ì•±ì„ ì‹œì‘í•©ë‹ˆë‹¤. ë¸Œë¼ìš°ì €ê°€ ìë™ìœ¼ë¡œ ì—´ë¦½ë‹ˆë‹¤. (ì¢…ë£Œ: Ctrl+C)
+echo À¥¾ÛÀ» ½ÃÀÛÇÕ´Ï´Ù. ºê¶ó¿ìÀú°¡ ÀÚµ¿À¸·Î ¿­¸³´Ï´Ù. (Á¾·á: Ctrl+C)
+set WEB_RESTARTED=
+:run
 python -m web.server
+if %ERRORLEVEL%==3 (
+  set WEB_RESTARTED=1
+  echo.
+  echo ÄÚµå°¡ ¹Ù²î¾î À¥¾ÛÀ» ´Ù½Ã ÄÕ´Ï´Ù...
+  goto run
+)
 pause
