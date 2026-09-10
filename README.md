@@ -30,10 +30,13 @@ python -m video_pipeline 영상.mp4
 python -m video_pipeline 영상.mp4 --steps plan,assets,render   # 특정 단계만
 python -m video_pipeline 영상.mp4 --mode pip --no-overlays --no-mosaic
 python -m video_pipeline 영상.mp4 --blur-faces --mute-spoken-pii --fresh
-python -m video_pipeline 영상.mp4 --subtitles variety --subtitle-emphasis "뱃살,마오차"   # 예능 자막 번인
+python -m video_pipeline 영상.mp4 --subtitles variety --subtitle-emphasis "곰돌이,말차"   # 예능 자막 번인
+python -m video_pipeline 영상.mp4 --fix "뱃살=곰돌이,마오차=말차" --steps render          # 전사 오류 교정 후 재렌더
 ```
 
 **자막 번인** — `--subtitles variety`는 흑백요리사 풍 예능 자막(NanumSquare ExtraBold, 흰 글자 + 두꺼운 검정 외곽선 + 그림자, 하단 중앙, 등장 시 팝)을 영상에 직접 입힌다. `--subtitle-emphasis`에 쉼표로 적은 단어는 노란색으로 강조된다. `clean`은 담백한 흰 자막. 환경변수 `SUBTITLE_STYLE`, `SUBTITLE_EMPHASIS`, `SUBTITLE_FONT`로도 설정할 수 있다. 폰트가 없으면 `fonts-nanum`(Linux) 또는 나눔스퀘어를 설치한다.
+
+**전사 교정** — 음성 인식이 틀린 단어는 `--fix "잘못=바름,잘못2=바름2"`(또는 `TRANSCRIPT_FIXES`)로 바로잡는다. 캐시된 대본에 매번 적용되므로 `--steps render`만 다시 돌리면 자막(SRT·번인)과 리포트에 반영된다. 일러스트·아이콘 내용도 바꾸려면 `work/<영상>/plan.json`의 프롬프트를 고치고 `image_path`를 비운 뒤 렌더한다.
 
 ## API 키
 

@@ -111,7 +111,20 @@ class Job:
             else:
                 tr = transcribe(self.p_wav, self.cfg)
                 save_json(self.p_tr, tr)
-        self._memo["transcript"] = tr
+        self._memo["transcript"] = self._fix(tr)
+        return self._memo["transcript"]
+
+    @property
+    def fixes(self) -> dict[str, str]:
+        from .transcribe import parse_fixes
+        return parse_fixes(self.cfg.transcript_fixes)
+
+    def _fix(self, tr: Transcript) -> Transcript:
+        """사용자가 지정한 전사 교정(--fix)을 적용한다. 캐시된 대본에도 매번 적용되므로 멱등."""
+        fx = self.fixes
+        if fx:
+            tr.apply_fixes(fx)
+            log.info(f"  전사 교정 {len(fx)}개 적용: " + ", ".join(f"{k}→{v}" for k, v in fx.items()))
         return tr
 
     def ensure_transcript(self) -> Transcript:
@@ -120,7 +133,7 @@ class Job:
         if self.p_tr.exists() and self.cfg.reuse_cache:
             if self.info["has_audio"] and not self.p_wav.exists():
                 extract_audio(self.src, self.p_wav)
-            self._memo["transcript"] = Transcript.from_dict(load_json(self.p_tr))
+            self._memo["transcript"] = self._fix(Transcript.from_dict(load_json(self.p_tr)))
             return self._memo["transcript"]
         return self.step_transcribe(force=not self.cfg.reuse_cache)
 
@@ -159,7 +172,14 @@ class Job:
             d = load_json(self.p_cuts)
             cp = CutPlan([Removal(**r) for r in d["removals"]], [tuple(k) for k in d["keeps"]],
                          d["summary"]["original_duration"], d["summary"]["new_duration"])
-            self._memo["cut"] = (cp, Transcript.from_dict(load_json(self.p_tr_cut)), self.p_cut_hash.read_text())
+            tr_cut = self._fix(Transcript.from_dict(load_json(self.p_tr_cut)))
+            if self.fixes:
+                for r in cp.removals:
+                    for k, v in self.fixes.items():
+                        r.text = (r.text or "").replace(k, v)
+                if tr_cut.segments:
+                    _write_srt(tr_cut, self.out_srt)     # 교정된 대본으로 자막 파일 갱신
+            self._memo["cut"] = (cp, tr_cut, self.p_cut_hash.read_text())
             return self._memo["cut"]
         self.step_cut(force=not self.cfg.reuse_cache)
         return self._memo["cut"]

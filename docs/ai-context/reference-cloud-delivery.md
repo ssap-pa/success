@@ -21,3 +21,4 @@ metadata:
 - **파이프라인 소요 (2026-09-10, 4 vCPU CPU 전용, 41.6s 4K60 원본):** whisper medium 전사 108s, 컷 편집본 4K libx264 렌더 283s, gpt-image-1 medium 일러스트 1장 19s·아이콘 3장 46s, OCR(1.0s 간격) 172s.
 - **plan.json 직접 작성 경로 실제 사용 (2026-09-10):** 세션 Claude가 `work/<영상>/plan.json`을 스키마대로 쓰고 `--steps assets,pii,render`를 돌려 일러스트 1장·아이콘 3장 생성, 4K 렌더(319s), `--replace`로 Drive 교체까지 완료. 리포트 md는 `notes`에 세션이 직접 기획했다고 남긴다.
 - **gpt-image-1 투명 PNG 가장자리 (2026-09-10 발견):** 투명 배경 출력의 바깥 1px 알파가 80~110으로 남아 `_sticker_image`의 흰 테두리(임계 110)가 사각 프레임으로 그려졌다. `ensure_transparent`에서 바깥 2px 알파를 0으로 지워 해결. 렌더 결과를 프레임 추출(ffmpeg -ss)로 눈으로 확인할 것.
+- **PIPELINE_ANTHROPIC_API_KEY 확인 (2026-09-10 14:11, 자식 세션 session_01LVmrDVK8PvHh9ofkQtYe4k):** 새 세션에는 변수가 들어오지만 Anthropic API 호출이 401(invalid)로 실패. 값이 잘못 입력됐거나 잘린 것으로 보임. GitHub Actions repository secret의 ANTHROPIC_API_KEY는 워크플로 실행 중에만 풀리므로 세션에서 못 읽는다. 이 세션의 기획은 API 없이 세션 Claude가 plan.json을 직접 썼다.

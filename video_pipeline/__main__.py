@@ -34,7 +34,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--drive-folder", help="결과(mp4·srt·md)를 올릴 Google Drive 폴더 ID 또는 URL (GDRIVE_SERVICE_ACCOUNT_JSON 필요)")
     p.add_argument("--subtitles", choices=["none", "variety", "clean"],
                    help="자막 번인: variety=흑백요리사 풍 예능 자막(굵은 고딕·검정 외곽선·노란 강조), clean=담백한 흰 자막")
-    p.add_argument("--subtitle-emphasis", help="노란색으로 강조할 단어, 쉼표 구분 (예: 뱃살,마오차)")
+    p.add_argument("--subtitle-emphasis", help="노란색으로 강조할 단어, 쉼표 구분 (예: 곰돌이,말차)")
+    p.add_argument("--fix", help="전사 오류 교정, 쉼표 구분 '잘못=바름' (예: 뱃살=곰돌이,마오차=말차). 자막·리포트·기획에 반영")
     p.add_argument("-v", "--verbose", action="store_true")
     return p
 
@@ -70,6 +71,8 @@ def apply_args(cfg: PipelineConfig, a: argparse.Namespace) -> PipelineConfig:
         cfg.subtitle_style = a.subtitles
     if a.subtitle_emphasis:
         cfg.subtitle_emphasis = a.subtitle_emphasis
+    if a.fix:
+        cfg.transcript_fixes = a.fix
     return cfg
 
 

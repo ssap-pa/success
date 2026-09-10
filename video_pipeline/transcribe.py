@@ -17,6 +17,17 @@ class Word:
     prob: float = 1.0
 
 
+def parse_fixes(spec: str) -> dict[str, str]:
+    """'잘못=바름,잘못2=바름2' → {'잘못': '바름', ...}. 빈 항목·'=' 없는 항목은 무시."""
+    out: dict[str, str] = {}
+    for item in (spec or "").split(","):
+        if "=" in item:
+            k, v = item.split("=", 1)
+            if k.strip():
+                out[k.strip()] = v.strip()
+    return out
+
+
 @dataclass
 class Segment:
     start: float
@@ -29,6 +40,17 @@ class Transcript:
     words: list[Word] = field(default_factory=list)
     segments: list[Segment] = field(default_factory=list)
     language: str = "ko"
+
+    def apply_fixes(self, fixes: dict[str, str]) -> "Transcript":
+        """전사 오류 교정(부분 문자열 치환)을 단어·문장에 모두 적용한다. 긴 키부터 치환."""
+        if not fixes:
+            return self
+        for wrong, right in sorted(fixes.items(), key=lambda kv: -len(kv[0])):
+            for s in self.segments:
+                s.text = s.text.replace(wrong, right)
+            for w in self.words:
+                w.text = w.text.replace(wrong, right)
+        return self
 
     @classmethod
     def from_dict(cls, d: dict) -> "Transcript":
