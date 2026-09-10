@@ -1,0 +1,11 @@
+faster-whisper>=1.1
+ctranslate2>=4.5
+anthropic>=0.80
+openai>=1.60
+opencv-python>=4.10
+easyocr>=1.7
+torch>=2.4
+pillow>=10
+numpy>=1.26
+python-dotenv>=1.0
+watchdog>=4

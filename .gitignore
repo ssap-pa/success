@@ -1,0 +1,29 @@
+# secrets
+.env
+*.env
+!.env.example
+
+# user media / large working data (personal recordings, hundreds of MB)
+inbox/
+uploads/
+output/
+work/
+
+# python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# model caches / temp
+*.log
+.cache/
+tmp/
+
+# OS / editor
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/
+.idea/

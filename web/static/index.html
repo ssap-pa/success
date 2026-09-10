@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>유튜브 자동 편집</title>
+<style>
+  :root{--yellow:#F7C948;--navy:#2D3858;--navy2:#3B4870;--coral:#F68C83;--orange:#F08C28;--rust:#963719;
+        --ink:#141418;--cream:#FFFCF5;--paper:#fff;--muted:#7a8299;--ok:#2f9e6b;--err:#d64545}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;background:var(--navy);color:var(--ink)}
+  header{background:var(--yellow);border-bottom:5px solid var(--ink);padding:18px 28px;display:flex;align-items:center;gap:16px}
+  header h1{margin:0;font-size:22px;letter-spacing:-.5px}
+  header .sub{font-size:13px;color:#4a4a4a}
+  header .gpu{margin-left:auto;font-size:12px;background:var(--paper);border:3px solid var(--ink);padding:6px 10px;border-radius:999px;box-shadow:4px 4px 0 var(--ink)}
+  main{display:grid;grid-template-columns:340px 1fr;gap:18px;padding:18px 28px 40px;max-width:1500px;margin:0 auto}
+  .card{background:var(--cream);border:4px solid var(--ink);border-radius:14px;box-shadow:8px 8px 0 var(--ink);padding:16px;margin-bottom:18px}
+  .card h2{margin:0 0 12px;font-size:16px;display:flex;align-items:center;gap:8px}
+  .card h2 .n{display:inline-flex;width:24px;height:24px;border-radius:50%;background:var(--yellow);border:3px solid var(--ink);align-items:center;justify-content:center;font-size:12px}
+  .drop{display:block;border:3px dashed var(--ink);border-radius:10px;padding:18px;text-align:center;background:var(--paper);cursor:pointer;font-size:14px;line-height:1.6}
+  .drop.over{background:#FFF1BF}
+  .drop input{display:none}
+  .list{margin-top:10px;max-height:420px;overflow:auto}
+  .vid{border:3px solid var(--ink);border-radius:10px;background:var(--paper);padding:8px 10px;margin-bottom:8px;cursor:pointer;font-size:13px}
+  .vid.sel{background:#FFF1BF;box-shadow:4px 4px 0 var(--ink)}
+  .vid .name{font-weight:700;word-break:break-all}
+  .vid .meta{color:var(--muted);font-size:11px;margin-top:2px}
+  .steps{display:flex;gap:4px;margin-top:6px;flex-wrap:wrap}
+  .dot{font-size:10px;padding:2px 6px;border-radius:999px;border:2px solid var(--ink);background:#eee}
+  .dot.on{background:#B9F0CF}
+  .row{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;font-size:13px}
+  label.opt{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+  select,input[type=text],input[type=password],input[type=number],textarea{border:3px solid var(--ink);border-radius:8px;padding:6px 8px;font:inherit;font-size:13px;background:var(--paper)}
+  input[type=number]{width:74px}
+  button{border:3px solid var(--ink);border-radius:10px;background:var(--paper);padding:9px 14px;font:inherit;font-weight:700;cursor:pointer;box-shadow:4px 4px 0 var(--ink);transition:transform .05s}
+  button:active{transform:translate(2px,2px);box-shadow:2px 2px 0 var(--ink)}
+  button:disabled{opacity:.45;cursor:not-allowed;box-shadow:none}
+  button.primary{background:var(--yellow)}
+  button.coral{background:var(--coral)}
+  button.small{padding:5px 10px;font-size:12px;box-shadow:3px 3px 0 var(--ink)}
+  .btns{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
+  .stepbtn{position:relative}
+  .stepbtn .k{display:block;font-size:10px;font-weight:400;color:var(--muted)}
+  pre.log{background:var(--ink);color:#e8e8e8;border-radius:10px;padding:12px;font-size:12px;height:260px;overflow:auto;white-space:pre-wrap;margin:0;border:4px solid var(--ink)}
+  .status{display:inline-block;padding:3px 10px;border-radius:999px;border:3px solid var(--ink);font-size:12px;font-weight:700;background:#eee}
+  .status.running{background:var(--yellow)} .status.done{background:#B9F0CF} .status.error{background:var(--coral)}
+  video{width:100%;max-height:480px;background:#000;border:4px solid var(--ink);border-radius:10px}
+  .tabs{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+  .tabs button{box-shadow:none;padding:6px 12px;font-size:13px;border-radius:999px;background:#eee}
+  .tabs button.on{background:var(--yellow)}
+  .tab{display:none}.tab.on{display:block}
+  pre.report{background:var(--paper);border:3px solid var(--ink);border-radius:10px;padding:12px;font-size:12px;max-height:520px;overflow:auto;white-space:pre-wrap;margin:0}
+  textarea.json{width:100%;height:360px;font-family:Consolas,monospace;font-size:12px}
+  table{border-collapse:collapse;width:100%;font-size:12px;background:var(--paper)}
+  th,td{border:2px solid var(--ink);padding:5px 7px;text-align:left;vertical-align:top}
+  th{background:#FFF1BF}
+  .thumbs{display:flex;flex-wrap:wrap;gap:10px}
+  .thumbs img{height:110px;border:3px solid var(--ink);border-radius:8px;background:repeating-conic-gradient(#ddd 0 25%,#fff 0 50%) 0 0/16px 16px}
+  .hint{font-size:12px;color:var(--muted);margin-top:6px}
+  .warn{font-size:12px;background:#FFE7E4;border:2px solid var(--rust);border-radius:8px;padding:6px 10px;margin-top:8px}
+  .links a{margin-right:12px;font-size:13px}
+  details{margin-top:8px;font-size:13px}
+  summary{cursor:pointer;font-weight:700}
+  @media (max-width:980px){main{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>🎬 유튜브 자동 편집</h1>
+    <div class="sub">전사 → 무음/추임새 컷 → 일러스트·오버레이 기획 → 개인정보 모자이크 → 렌더</div>
+  </div>
+  <div class="gpu" id="gpu">…</div>
+</header>
+
+<main>
+  <!-- 왼쪽: 영상 -->
+  <section>
+    <div class="card">
+      <h2><span class="n">1</span> 영상</h2>
+      <label class="drop" id="drop">
+        <input type="file" id="file" accept="video/*,.mp4,.mov,.mkv,.avi,.webm,.m4v,.mts,.wmv" multiple>
+        영상을 여기에 끌어다 놓거나 클릭해서 선택<br><span class="hint" id="upmsg">uploads/ 폴더에 저장됩니다</span>
+      </label>
+      <div class="list" id="list"></div>
+      <div class="btns">
+        <button class="small" onclick="loadVideos()">새로고침</button>
+        <button class="small" id="clearBtn" onclick="clearCache()">선택 영상 캐시 삭제</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2><span class="n">⚙</span> 설정 (API 키)</h2>
+      <div class="row" style="flex-direction:column;align-items:stretch;gap:8px">
+        <div>Claude (기획) <span class="hint" id="k_anth"></span><br>
+          <input type="password" id="ANTHROPIC_API_KEY" placeholder="ANTHROPIC_API_KEY (sk-ant-…)" style="width:100%"></div>
+        <div>OpenAI (그림 생성) <span class="hint" id="k_oai"></span><br>
+          <input type="password" id="OPENAI_API_KEY" placeholder="OPENAI_API_KEY (sk-…)" style="width:100%"></div>
+        <div class="row">
+          <button class="small primary" onclick="saveSettings()">저장</button>
+          <span class="hint">.env 파일에 저장됩니다. 비워 두면 기존 값 유지.</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 오른쪽: 옵션/실행/결과 -->
+  <section>
+    <div class="card">
+      <h2><span class="n">2</span> 옵션</h2>
+      <div class="row">
+        <label class="opt"><input type="checkbox" id="o_cut" checked> 무음·추임새 컷</label>
+        <label class="opt"><input type="checkbox" id="o_illustrations" checked> 설명 일러스트</label>
+        <label class="opt"><input type="checkbox" id="o_overlays" checked> 로고·아이콘 오버레이</label>
+        <label class="opt"><input type="checkbox" id="o_mosaic" checked> 개인정보 모자이크</label>
+        <label class="opt"><input type="checkbox" id="o_blur_faces"> 얼굴 모자이크</label>
+        <label class="opt"><input type="checkbox" id="o_mute"> 음성 개인정보 음소거</label>
+        <label class="opt"><input type="checkbox" id="o_sfx" checked> 등장·퇴장 효과음</label>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <label class="opt">일러스트 표시
+          <select id="o_mode"><option value="overlay">투명 스티커 (카드 없음)</option><option value="center">중앙 카드</option><option value="pip">우측 카드</option><option value="cutaway">전체 전환</option></select></label>
+        <label class="opt">일러스트 위치
+          <select id="o_scene_pos"><option value="center">가운데</option><option value="right">오른쪽</option><option value="left">왼쪽</option><option value="top-right">오른쪽 위</option><option value="bottom-right">오른쪽 아래</option></select></label>
+        <label class="opt">Whisper
+          <select id="o_whisper"><option>large-v3</option><option>medium</option><option>small</option></select></label>
+        <label class="opt">그림 생성
+          <select id="o_provider"><option value="auto">자동</option><option value="openai">OpenAI</option><option value="placeholder">플레이스홀더</option></select></label>
+      </div>
+      <details>
+        <summary>세부 조절</summary>
+        <div class="row" style="margin-top:8px">
+          <label class="opt">무음 기준(초) <input type="number" id="o_min_silence" step="0.1" value="0.6"></label>
+          <label class="opt">남길 무음(초) <input type="number" id="o_keep_silence" step="0.05" value="0.3"></label>
+          <label class="opt">일러스트/분 <input type="number" id="o_scenes" step="0.5" value="1.5"></label>
+          <label class="opt">오버레이/분 <input type="number" id="o_overlays_pm" step="0.5" value="4"></label>
+          <label class="opt">OCR 간격(초) <input type="number" id="o_ocr" step="0.1" value="0.5"></label>
+          <label class="opt">화질(낮을수록 좋음) <input type="number" id="o_quality" value="19"></label>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <label class="opt">OCR 해상도
+            <select id="o_ocr_w"><option value="960">960 (빠름)</option><option value="1280" selected>1280 (권장)</option><option value="1920">1920</option><option value="0">원본</option></select></label>
+          <label class="opt"><input type="checkbox" id="o_ocr_skip" checked> 화면이 안 바뀌면 OCR 건너뛰기</label>
+          <label class="opt">최소 OCR 주기(초) <input type="number" id="o_ocr_force" step="0.5" value="3"></label>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <label class="opt">일러스트 크기(화면 높이 비율) <input type="number" id="o_scene_h" step="0.05" min="0.2" max="1" value="0.62"></label>
+          <label class="opt">아이콘·로고 크기 <input type="number" id="o_overlay_h" step="0.05" min="0.1" max="0.8" value="0.32"></label>
+          <label class="opt">효과음 크기 <input type="number" id="o_sfx_vol" step="0.05" min="0" max="1" value="0.35"></label>
+        </div>
+      </details>
+    </div>
+
+    <div class="card">
+      <h2><span class="n">3</span> 실행 <span class="status" id="status">대기</span> <span class="hint" id="elapsed"></span></h2>
+      <div class="btns">
+        <button class="primary" id="runAll" onclick="run(null)">▶ 전체 실행</button>
+        <label class="opt" style="font-size:13px"><input type="checkbox" id="force"> 이 단계 강제 재실행(캐시 무시)</label>
+      </div>
+      <div class="btns" id="stepBtns"></div>
+      <div class="hint">단계 버튼은 앞 단계 결과가 있으면 재사용하고, 없으면 자동으로 먼저 실행합니다.</div>
+      <pre class="log" id="log"></pre>
+    </div>
+
+    <div class="card">
+      <h2><span class="n">4</span> 결과 <span class="hint" id="resName"></span></h2>
+      <div class="tabs">
+        <button class="on" data-tab="video">영상</button>
+        <button data-tab="report">리포트</button>
+        <button data-tab="plan">기획 수정</button>
+        <button data-tab="images">생성 이미지</button>
+        <button data-tab="transcript">대본</button>
+      </div>
+      <div class="tab on" id="tab-video">
+        <video id="player" controls></video>
+        <div class="links" id="links" style="margin-top:8px"></div>
+      </div>
+      <div class="tab" id="tab-report"><pre class="report" id="report">—</pre></div>
+      <div class="tab" id="tab-plan">
+        <div id="planTables"></div>
+        <details open><summary>JSON 직접 편집</summary>
+          <textarea class="json" id="planJson"></textarea>
+        </details>
+        <div class="btns">
+          <button class="small primary" onclick="savePlan(false)">저장</button>
+          <button class="small coral" onclick="savePlan(true)">저장 후 이미지 생성 + 렌더</button>
+        </div>
+        <div class="hint">start/end는 편집본(컷 후) 기준 초. overlays.kind는 logo 또는 icon, position은 top-right / top-left / bottom-right / bottom-left / right / left.</div>
+      </div>
+      <div class="tab" id="tab-images"><div class="thumbs" id="thumbs">—</div></div>
+      <div class="tab" id="tab-transcript"><pre class="report" id="transcript">—</pre></div>
+    </div>
+  </section>
+</main>
+
+<script>
+const STEPS = [["transcribe","전사","Whisper"],["cut","컷 편집","무음·추임새"],["plan","기획","Claude"],
+               ["assets","이미지 생성","일러스트·아이콘"],["pii","개인정보 탐지","OCR"],["render","최종 렌더","모자이크+합성"]];
+let videos = [], selected = null, polling = null, logSeen = 0, lastJobId = 0;
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+// ── 단계 버튼 ─────────────────────────────
+STEPS.forEach(([k, label, sub]) => {
+  const b = document.createElement("button");
+  b.className = "stepbtn"; b.id = "btn-" + k;
+  b.innerHTML = `${label}<span class="k">${sub}</span>`;
+  b.onclick = () => run([k]);
+  $("stepBtns").appendChild(b);
+});
+
+// ── 영상 목록 ─────────────────────────────
+async function loadVideos() {
+  videos = await (await fetch("/api/videos")).json();
+  const list = $("list"); list.innerHTML = "";
+  if (!videos.length) list.innerHTML = '<div class="hint">영상이 없습니다. 위에 올려 주세요.</div>';
+  videos.forEach(v => {
+    const d = document.createElement("div");
+    d.className = "vid" + (selected && selected.path === v.path ? " sel" : "");
+    d.innerHTML = `<div class="name">${esc(v.name)}</div>
+      <div class="meta">${esc(v.folder)}/ · ${v.size_mb} MB</div>
+      <div class="steps">${STEPS.map(([k,l]) => `<span class="dot ${v[k] ? "on" : ""}">${l}</span>`).join("")}</div>`;
+    d.onclick = () => select(v);
+    list.appendChild(d);
+  });
+  if (selected) { const s = videos.find(v => v.path === selected.path); if (s) selected = s; }
+}
+
+function select(v) {
+  selected = v;
+  document.querySelectorAll(".vid").forEach(el => el.classList.toggle("sel", el.querySelector(".name").textContent === v.name));
+  $("resName").textContent = v.name;
+  loadResults();
+}
+
+// ── 업로드 ────────────────────────────────
+const drop = $("drop");
+drop.addEventListener("dragover", e => { e.preventDefault(); drop.classList.add("over"); });
+drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+drop.addEventListener("drop", e => { e.preventDefault(); drop.classList.remove("over"); upload(e.dataTransfer.files); });
+$("file").addEventListener("change", e => upload(e.target.files));
+
+async function upload(files) {
+  for (const f of files) {
+    $("upmsg").textContent = `업로드 중: ${f.name}`;
+    const fd = new FormData(); fd.append("file", f);
+    const r = await (await fetch("/api/upload", {method: "POST", body: fd})).json();
+    $("upmsg").textContent = r.ok ? `업로드 완료: ${r.name}` : ("실패: " + r.error);
+    if (r.ok) { await loadVideos(); select(videos.find(v => v.path === r.path)); }
+  }
+}
+
+// ── 옵션 ──────────────────────────────────
+function options() {
+  return {
+    cut: $("o_cut").checked, illustrations: $("o_illustrations").checked, overlays: $("o_overlays").checked,
+    mosaic: $("o_mosaic").checked, blur_faces: $("o_blur_faces").checked, mute_spoken_pii: $("o_mute").checked,
+    illustration_mode: $("o_mode").value, whisper_model: $("o_whisper").value, image_provider: $("o_provider").value,
+    min_silence: +$("o_min_silence").value, keep_silence: +$("o_keep_silence").value,
+    max_scenes_per_min: +$("o_scenes").value, max_overlays_per_min: +$("o_overlays_pm").value,
+    ocr_interval: +$("o_ocr").value, video_quality: +$("o_quality").value,
+    ocr_max_width: +$("o_ocr_w").value, ocr_skip_static: $("o_ocr_skip").checked,
+    ocr_force_interval: +$("o_ocr_force").value,
+    sfx: $("o_sfx").checked, sfx_volume: +$("o_sfx_vol").value, scene_position: $("o_scene_pos").value,
+    scene_height: +$("o_scene_h").value, overlay_height: +$("o_overlay_h").value,
+  };
+}
+
+// ── 실행 / 폴링 ───────────────────────────
+async function run(steps) {
+  if (!selected) { alert("먼저 영상을 선택하세요."); return; }
+  const r = await (await fetch("/api/run", {method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({path: selected.path, steps, force: $("force").checked, options: options()})})).json();
+  if (r.error) { alert(r.error); return; }
+  $("log").textContent = ""; logSeen = 0; lastJobId = r.id;
+  setRunning(true); startPolling();
+}
+
+function setRunning(on) {
+  $("runAll").disabled = on; $("clearBtn").disabled = on;
+  STEPS.forEach(([k]) => $("btn-" + k).disabled = on);
+}
+
+function startPolling() {
+  if (polling) return;
+  polling = setInterval(poll, 1000); poll();
+}
+
+async function poll() {
+  const j = await (await fetch("/api/job?since=" + logSeen)).json();
+  if (j.log.length) {
+    $("log").textContent += (logSeen ? "\n" : "") + j.log.join("\n");
+    $("log").scrollTop = $("log").scrollHeight;
+  }
+  logSeen = j.total;
+  const st = $("status"); st.className = "status " + j.status;
+  st.textContent = {idle: "대기", running: "실행 중", done: "완료", error: "오류"}[j.status] || j.status;
+  $("elapsed").textContent = j.started && j.status !== "idle" ? `${j.video} · ${j.elapsed}s` : "";
+  if (j.status !== "running") {
+    clearInterval(polling); polling = null; setRunning(false);
+    if (j.id && j.id !== lastJobId) return;
+    await loadVideos(); if (selected) loadResults();
+  }
+}
+
+// ── 결과 ──────────────────────────────────
+document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => {
+  document.querySelectorAll(".tabs button").forEach(x => x.classList.toggle("on", x === b));
+  document.querySelectorAll(".tab").forEach(t => t.classList.toggle("on", t.id === "tab-" + b.dataset.tab));
+});
+
+async function loadResults() {
+  if (!selected) return;
+  const stem = selected.stem, bust = "?t=" + Date.now();
+  // 영상
+  const player = $("player"), links = $("links");
+  if (selected.render) {
+    player.src = `/files/output/${stem}_edited.mp4${bust}`;
+    links.innerHTML = `<a href="/files/output/${stem}_edited.mp4" download>편집 영상 다운로드</a>
+      <a href="/files/output/${stem}_edited.srt" download>자막(SRT)</a>
+      <a href="/files/output/${stem}_report.md" download>리포트(MD)</a>
+      <a href="/files/video?path=${encodeURIComponent(selected.path)}" target="_blank">원본 보기</a>`;
+  } else {
+    player.removeAttribute("src"); player.load();
+    links.innerHTML = '<span class="hint">아직 최종 렌더 결과가 없습니다.</span>';
+  }
+  $("report").textContent = await (await fetch(`/api/videos/${stem}/report${bust}`)).text();
+  const plan = await (await fetch(`/api/videos/${stem}/plan${bust}`)).json();
+  $("planJson").value = JSON.stringify(plan, null, 2);
+  renderPlanTables(plan);
+  const imgs = await (await fetch(`/api/videos/${stem}/images${bust}`)).json();
+  $("thumbs").innerHTML = imgs.length ? imgs.map(n => `<a href="/files/work/${stem}/images/${n}" target="_blank" title="${esc(n)}"><img src="/files/work/${stem}/images/${n}${bust}"></a>`).join("") : '<span class="hint">아직 생성된 이미지가 없습니다.</span>';
+  const tr = await (await fetch(`/api/videos/${stem}/transcript${bust}`)).json();
+  $("transcript").textContent = (tr.segments || []).map(s => `[${clock(s.start)}-${clock(s.end)}] ${s.text}`).join("\n") || "아직 전사 결과가 없습니다.";
+}
+
+function clock(t) { t = Math.max(0, t|0); return String((t/60)|0).padStart(2,"0") + ":" + String(t%60).padStart(2,"0"); }
+
+function renderPlanTables(plan) {
+  const S = (plan.scenes || []), O = (plan.overlays || []), P = (plan.spoken_pii || []);
+  let h = "";
+  if (plan.skipped_reason) h += `<div class="warn">기획 건너뜀: ${esc(plan.skipped_reason)} — 아래 JSON에 직접 장면을 적어 저장할 수도 있습니다.</div>`;
+  h += `<h3 style="font-size:14px;margin:10px 0 6px">설명 일러스트 (${S.length})</h3>`;
+  h += S.length ? `<table><tr><th>시각</th><th>개념</th><th>라벨</th><th>로고</th><th>이미지 프롬프트</th></tr>` +
+    S.map(s => `<tr><td>${clock(s.start)}–${clock(s.end)}</td><td>${esc(s.concept)}</td><td>${esc(s.label)}</td><td>${esc(s.logo_hint)}</td><td style="max-width:360px">${esc(s.image_prompt)}</td></tr>`).join("") + "</table>" : '<div class="hint">없음</div>';
+  h += `<h3 style="font-size:14px;margin:10px 0 6px">오버레이 (${O.length})</h3>`;
+  h += O.length ? `<table><tr><th>시각</th><th>종류</th><th>이름</th><th>위치</th><th>아이콘 묘사</th></tr>` +
+    O.map(o => `<tr><td>${clock(o.start)}–${clock(o.end)}</td><td>${esc(o.kind)}</td><td>${esc(o.name)}</td><td>${esc(o.position)}</td><td style="max-width:360px">${esc(o.icon_prompt)}</td></tr>`).join("") + "</table>" : '<div class="hint">없음</div>';
+  if (P.length) h += `<h3 style="font-size:14px;margin:10px 0 6px">음성 개인정보 (${P.length})</h3><table><tr><th>시각</th><th>종류</th></tr>` +
+    P.map(p => `<tr><td>${clock(p.start)}–${clock(p.end)}</td><td>${esc(p.kind)}</td></tr>`).join("") + "</table>";
+  $("planTables").innerHTML = h;
+}
+
+async function savePlan(andRender) {
+  if (!selected) return;
+  let data;
+  try { data = JSON.parse($("planJson").value); } catch (e) { alert("JSON 형식 오류: " + e.message); return; }
+  const r = await (await fetch(`/api/videos/${selected.stem}/plan`, {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify(data)})).json();
+  if (r.error) { alert(r.error); return; }
+  if (andRender) run(["assets", "render"]); else loadResults();
+}
+
+async function clearCache() {
+  if (!selected) return;
+  if (!confirm(`${selected.name}의 중간 결과(전사·컷·기획·OCR)를 모두 지울까요?`)) return;
+  await fetch(`/api/videos/${selected.stem}/clear`, {method: "POST"});
+  await loadVideos(); loadResults();
+}
+
+// ── 설정 ──────────────────────────────────
+async function loadSettings() {
+  const s = await (await fetch("/api/settings")).json();
+  $("gpu").textContent = "장치: " + s.gpu;
+  try { const v = await (await fetch("/api/version")).json(); $("gpu").textContent += ` · 서버 시작 ${v.started.slice(11, 16)}`; } catch (e) {}
+  $("k_anth").textContent = s.ANTHROPIC_API_KEY.set ? `설정됨 (${s.ANTHROPIC_API_KEY.masked})` : "없음 → 기획 단계를 건너뜀";
+  $("k_oai").textContent = s.OPENAI_API_KEY.set ? `설정됨 (${s.OPENAI_API_KEY.masked})` : "없음 → 플레이스홀더 그림";
+  const d = s.defaults;
+  $("o_mode").value = d.illustration_mode; $("o_whisper").value = d.whisper_model;
+  $("o_min_silence").value = d.min_silence; $("o_keep_silence").value = d.keep_silence;
+  $("o_scenes").value = d.max_scenes_per_min; $("o_overlays_pm").value = d.max_overlays_per_min;
+  $("o_ocr").value = d.ocr_interval; $("o_quality").value = d.quality;
+  if (d.scene_height) $("o_scene_h").value = d.scene_height;
+  if (d.overlay_height) $("o_overlay_h").value = d.overlay_height;
+  if (d.scene_position) $("o_scene_pos").value = d.scene_position;
+}
+
+async function saveSettings() {
+  const body = {ANTHROPIC_API_KEY: $("ANTHROPIC_API_KEY").value, OPENAI_API_KEY: $("OPENAI_API_KEY").value};
+  await fetch("/api/settings", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
+  $("ANTHROPIC_API_KEY").value = ""; $("OPENAI_API_KEY").value = "";
+  loadSettings();
+}
+
+// ── 시작 ──────────────────────────────────
+loadSettings(); loadVideos().then(() => { if (videos.length) select(videos[0]); });
+fetch("/api/job").then(r => r.json()).then(j => { if (j.status === "running") { lastJobId = j.id; setRunning(true); startPolling(); } });
+</script>
+</body>
+</html>

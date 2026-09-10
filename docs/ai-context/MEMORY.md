@@ -1,0 +1,4 @@
+- [유튜브 자동 편집 파이프라인](project-video-pipeline.md) — success/video_pipeline 구조, PC 환경 제약(pip --user, API 키 없음, BOM)
+- [OCR 속도 피드백](feedback-ocr-speed.md) — 1440p 화면녹화 입력, OCR 느림·오탐 지적 → 축소/정적 건너뛰기로 6배 개선
+- [GitHub 저장소](reference-github-repo.md) — ssap-pa/success_test 비공개, docs/ai-context 동기화 규칙
+- [지식창고 저장소](reference-knowledge-db-repo.md) — ssap-pa/DB 구조, ssapable 창고는 재승인 전까지 사용 금지, adsense는 사용 가능
