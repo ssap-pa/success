@@ -38,7 +38,7 @@ python -m video_pipeline 영상.mp4 --blur-faces --mute-spoken-pii --fresh
 
 | 키 | 용도 | 없으면 |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | 시각 요소 기획 (Claude) | 기획 단계를 건너뜀. 컷 편집·모자이크는 정상 |
+| `ANTHROPIC_API_KEY` (클라우드 환경은 `PIPELINE_ANTHROPIC_API_KEY`) | 시각 요소 기획 (Claude) | 기획 단계를 건너뜀. 컷 편집·모자이크는 정상 |
 | `OPENAI_API_KEY` | 일러스트·아이콘 생성 (gpt-image-1) | 같은 팔레트의 도형 플레이스홀더로 대체 |
 
 ## 결과물
