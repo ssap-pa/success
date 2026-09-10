@@ -68,6 +68,7 @@ class PipelineConfig:
     image_provider: str = _env("IMAGE_PROVIDER", "auto")       # auto | openai | placeholder
     image_model: str = _env("IMAGE_MODEL", "gpt-image-1")
     image_quality: str = _env("IMAGE_QUALITY", "medium")
+    image_workers: int = _env("IMAGE_WORKERS", 5)              # 이미지 동시 생성 수 (OpenAI 병렬 요청)
     logo_dir: Path = field(default_factory=lambda: Path(_env("LOGO_DIR", str(ROOT / "로고"))))
 
     # ── 개인정보 모자이크 ─────────────────────────────────

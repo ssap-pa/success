@@ -63,6 +63,7 @@ OPTION_FIELDS = {
     "max_overlays_per_min": float, "ocr_interval": float, "video_quality": int,
     "ocr_max_width": int, "ocr_skip_static": bool, "ocr_force_interval": float,
     "sfx": bool, "sfx_volume": float, "scene_height": float, "overlay_height": float, "scene_position": str,
+    "image_workers": int, "image_quality": str,
 }
 
 

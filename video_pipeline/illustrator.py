@@ -366,34 +366,32 @@ def _sticker_image(img: Image.Image, target_h: int, max_w: int | None = None) ->
 
 # ── 전체 흐름 ─────────────────────────────────────────────────
 
-def generate_scene_images(scenes: list[Scene], cfg, img_dir: Path, provider=None) -> None:
-    if not scenes:
+class _Task:
+    def __init__(self, label: str, obj, prompt: str, path: Path, transparent: bool):
+        self.label, self.obj, self.prompt, self.path, self.transparent = label, obj, prompt, path, transparent
+
+
+def generate_assets(scenes: list[Scene], overlays: list[Overlay], cfg, img_dir: Path, provider=None) -> None:
+    """일러스트와 아이콘을 한 번에 모아 병렬로 생성한다. 로고는 파일에서 바로 만든다(API 불필요).
+
+    API 호출은 한 장에 15~25초가 걸리므로 순서대로 하면 장수만큼 곱해진다.
+    image_workers 개의 스레드로 동시에 요청해 전체 시간을 가장 오래 걸리는 한 장 수준으로 줄인다.
+    """
+    if not scenes and not overlays:
         return
     img_dir.mkdir(parents=True, exist_ok=True)
     provider = provider or choose_provider(cfg)
+    logos = LogoIndex(cfg.logo_dir)
+    tasks: list[_Task] = []
+
     for i, sc in enumerate(scenes):
         key = hashlib.md5((provider.name + sc.image_prompt).encode()).hexdigest()[:10]
         path = img_dir / f"scene{i + 1:02d}_{key}.png"
         if path.exists() and cfg.reuse_cache:
             sc.image_path = str(path)
             continue
-        prompt = sc.image_prompt.strip() + STYLE_SUFFIX
-        try:
-            img = provider.generate(prompt)
-        except Exception as e:
-            log.warning(f"  장면 {i + 1} 이미지 생성 실패({e}); 플레이스홀더 사용")
-            img = PlaceholderProvider(cfg).generate(prompt)
-        img.save(path)
-        sc.image_path = str(path)
-        log.info(f"  일러스트 {i + 1}: {sc.concept} → {path.name}")
+        tasks.append(_Task(f"일러스트 {i + 1}: {sc.concept}", sc, sc.image_prompt.strip() + STYLE_SUFFIX, path, True))
 
-
-def generate_overlay_images(overlays: list[Overlay], cfg, img_dir: Path, provider=None) -> None:
-    if not overlays:
-        return
-    img_dir.mkdir(parents=True, exist_ok=True)
-    logos = LogoIndex(cfg.logo_dir)
-    provider = provider or choose_provider(cfg)
     for i, ov in enumerate(overlays):
         if ov.kind == "logo":
             src = logos.find(ov.name)
@@ -408,12 +406,42 @@ def generate_overlay_images(overlays: list[Overlay], cfg, img_dir: Path, provide
         prompt = (ov.icon_prompt or f"a simple symbolic icon representing {ov.name}").strip() + ICON_SUFFIX
         key = hashlib.md5((provider.name + prompt).encode()).hexdigest()[:10]
         path = img_dir / f"overlay{i + 1:02d}_icon_{key}.png"
-        if not (path.exists() and cfg.reuse_cache):
-            try:
-                img = provider.generate(prompt, transparent=True)
-            except Exception as e:
-                log.warning(f"  오버레이 {i + 1} 아이콘 생성 실패({e}); 플레이스홀더 사용")
-                img = PlaceholderProvider(cfg).generate(prompt, transparent=True)
-            ensure_transparent(img).save(path)
-        ov.image_path = str(path)
-        log.info(f"  오버레이 {i + 1}: 아이콘 '{ov.name}' → {path.name}")
+        if path.exists() and cfg.reuse_cache:
+            ov.image_path = str(path)
+            continue
+        tasks.append(_Task(f"오버레이 {i + 1}: 아이콘 '{ov.name}'", ov, prompt, path, True))
+
+    if not tasks:
+        log.info("  이미지 캐시가 모두 있어 생성을 건너뜁니다.")
+        return
+
+    def work(task: _Task) -> str:
+        try:
+            img = provider.generate(task.prompt, transparent=task.transparent)
+        except Exception as e:
+            if task.path.exists():      # 재생성 실패 시 이전에 만들어 둔 이미지를 지우지 않는다
+                log.warning(f"  {task.label} 재생성 실패({str(e)[:120]}); 기존 이미지 유지")
+                task.obj.image_path = str(task.path)
+                return task.path.name + " (기존)"
+            log.warning(f"  {task.label} 생성 실패({str(e)[:120]}); 플레이스홀더 사용")
+            img = PlaceholderProvider(cfg).generate(task.prompt, transparent=task.transparent)
+        ensure_transparent(img).save(task.path)
+        task.obj.image_path = str(task.path)
+        return task.path.name
+
+    workers = max(1, min(cfg.image_workers, len(tasks))) if provider.name == "openai" else 1
+    log.info(f"  이미지 {len(tasks)}장을 {workers}개 동시 요청으로 생성")
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = {pool.submit(work, t): t for t in tasks}
+        for fut in as_completed(futures):
+            t = futures[fut]
+            log.info(f"  {t.label} → {fut.result()}")
+
+
+def generate_scene_images(scenes: list[Scene], cfg, img_dir: Path, provider=None) -> None:
+    generate_assets(scenes, [], cfg, img_dir, provider)
+
+
+def generate_overlay_images(overlays: list[Overlay], cfg, img_dir: Path, provider=None) -> None:
+    generate_assets([], overlays, cfg, img_dir, provider)

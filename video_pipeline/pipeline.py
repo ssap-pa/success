@@ -199,18 +199,16 @@ class Job:
         if not plan.scenes and not plan.overlays:
             log.info("  생성할 시각 요소가 없습니다.")
             return plan
-        from .illustrator import choose_provider, generate_overlay_images, generate_scene_images
+        from .illustrator import choose_provider, generate_assets
         old = self.cfg.reuse_cache
         if force:
             self.cfg.reuse_cache = False
         try:
             provider = choose_provider(self.cfg)
-            with Timer("일러스트 생성"):
-                generate_scene_images(plan.scenes if self.cfg.illustrations else [], self.cfg,
-                                      self.work / "images", provider)
-            with Timer("오버레이(로고·아이콘) 준비"):
-                generate_overlay_images(plan.overlays if self.cfg.overlays else [], self.cfg,
-                                        self.work / "images", provider)
+            with Timer("이미지 생성 (일러스트·아이콘 병렬, 로고 파일)"):
+                generate_assets(plan.scenes if self.cfg.illustrations else [],
+                                plan.overlays if self.cfg.overlays else [],
+                                self.cfg, self.work / "images", provider)
         finally:
             self.cfg.reuse_cache = old
         save_json(self.p_plan, plan)

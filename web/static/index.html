@@ -148,6 +148,11 @@
           <label class="opt">아이콘·로고 크기 <input type="number" id="o_overlay_h" step="0.05" min="0.1" max="0.8" value="0.32"></label>
           <label class="opt">효과음 크기 <input type="number" id="o_sfx_vol" step="0.05" min="0" max="1" value="0.35"></label>
         </div>
+        <div class="row" style="margin-top:8px">
+          <label class="opt">이미지 동시 생성 수 <input type="number" id="o_img_workers" min="1" max="10" value="5"></label>
+          <label class="opt">이미지 품질
+            <select id="o_img_quality"><option value="low">low (빠름)</option><option value="medium" selected>medium</option><option value="high">high (느림)</option></select></label>
+        </div>
       </details>
     </div>
 
@@ -264,6 +269,7 @@ function options() {
     ocr_force_interval: +$("o_ocr_force").value,
     sfx: $("o_sfx").checked, sfx_volume: +$("o_sfx_vol").value, scene_position: $("o_scene_pos").value,
     scene_height: +$("o_scene_h").value, overlay_height: +$("o_overlay_h").value,
+    image_workers: +$("o_img_workers").value, image_quality: $("o_img_quality").value,
   };
 }
 
