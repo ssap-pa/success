@@ -33,6 +33,9 @@ DEFAULT_FILLERS = (
 @dataclass
 class PipelineConfig:
     # ── 전사 ──────────────────────────────────────────────
+    transcribe_provider: str = _env("TRANSCRIBE_PROVIDER", "local")   # local(faster-whisper) | openai(whisper-1 API)
+    openai_transcribe_model: str = _env("OPENAI_TRANSCRIBE_MODEL", "whisper-1")
+    text_model: str = _env("TEXT_MODEL", "gpt-4.1-mini")              # 자막 말투 변환 등 텍스트 작업용 OpenAI 모델
     whisper_model: str = _env("WHISPER_MODEL", "large-v3")
     whisper_device: str = _env("WHISPER_DEVICE", "auto")      # auto | cuda | cpu
     language: str = _env("LANGUAGE", "ko")
@@ -65,6 +68,8 @@ class PipelineConfig:
     subtitle_font: str = _env("SUBTITLE_FONT", "")             # 비우면 스타일 기본 폰트 (NanumSquare ExtraBold)
     subtitle_emphasis: str = _env("SUBTITLE_EMPHASIS", "")     # 노란색 강조어, 쉼표 구분
     transcript_fixes: str = _env("TRANSCRIPT_FIXES", "")       # 전사 오류 교정 "잘못=바름,잘못2=바름2" (자막·리포트·기획에 적용)
+    subtitle_tone: str = _env("SUBTITLE_TONE", "")             # 자막 말투 변환: "" | mz (한국 MZ 말투, OpenAI 텍스트 모델 사용)
+    fx: bool = _env("FX", True)                                 # work/<영상>/fx.json 이 있으면 예능 효과(줌·흑백 플래시·임팩트 자막) 적용
     scene_min_dur: float = 4.0
     scene_max_dur: float = 8.0
     fade: float = 0.4

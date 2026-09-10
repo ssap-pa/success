@@ -158,6 +158,49 @@ def _load_model(cfg):
 
 
 def transcribe(wav: Path, cfg) -> Transcript:
+    if getattr(cfg, "transcribe_provider", "local") == "openai":
+        return transcribe_openai(wav, cfg)
+    return transcribe_local(wav, cfg)
+
+
+def transcribe_openai(wav: Path, cfg) -> Transcript:
+    """OpenAI 음성 API(whisper-1)로 전사. 단어 타임스탬프를 주므로 컷 편집에 그대로 쓸 수 있다.
+    GPU 없는 클라우드 세션에서 로컬 whisper(CPU 44초+)보다 훨씬 빠르다."""
+    import openai
+
+    model = getattr(cfg, "openai_transcribe_model", "whisper-1")
+    log.info(f"  OpenAI 전사: {model}")
+    client = openai.OpenAI()
+    with open(wav, "rb") as f:
+        resp = client.audio.transcriptions.create(
+            model=model, file=f, language=cfg.language, response_format="verbose_json",
+            timestamp_granularities=["word", "segment"],
+        )
+    tr = Transcript(language=getattr(resp, "language", None) or cfg.language)
+    for seg in getattr(resp, "segments", None) or []:
+        d = seg if isinstance(seg, dict) else seg.model_dump()
+        text = (d.get("text") or "").strip()
+        if text:
+            tr.segments.append(Segment(float(d["start"]), float(d["end"]), text))
+    for w in getattr(resp, "words", None) or []:
+        d = w if isinstance(w, dict) else w.model_dump()
+        text = (d.get("word") or "").strip()
+        if text:
+            tr.words.append(Word(float(d["start"]), float(d["end"]), text, 1.0))
+    if not tr.segments and tr.words:   # 문장 정보가 없으면 단어를 2.5초 단위로 묶는다
+        cur: list[Word] = []
+        for w in tr.words:
+            if cur and (w.end - cur[0].start > 2.5):
+                tr.segments.append(Segment(cur[0].start, cur[-1].end, " ".join(x.text for x in cur)))
+                cur = []
+            cur.append(w)
+        if cur:
+            tr.segments.append(Segment(cur[0].start, cur[-1].end, " ".join(x.text for x in cur)))
+    log.info(f"  전사 완료: 문장 {len(tr.segments)}개, 단어 {len(tr.words)}개")
+    return tr
+
+
+def transcribe_local(wav: Path, cfg) -> Transcript:
     model = _load_model(cfg)
     segments_iter, info = model.transcribe(
         str(wav),

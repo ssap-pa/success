@@ -36,6 +36,9 @@ def build_parser() -> argparse.ArgumentParser:
                    help="자막 번인: variety=흑백요리사 풍 예능 자막(굵은 고딕·검정 외곽선·노란 강조), clean=담백한 흰 자막")
     p.add_argument("--subtitle-emphasis", help="노란색으로 강조할 단어, 쉼표 구분 (예: 곰돌이,말차)")
     p.add_argument("--fix", help="전사 오류 교정, 쉼표 구분 '잘못=바름' (예: 뱃살=곰돌이,마오차=말차). 자막·리포트·기획에 반영")
+    p.add_argument("--transcribe", choices=["local", "openai"], help="전사 방식: local=faster-whisper, openai=whisper-1 API")
+    p.add_argument("--subtitle-tone", choices=["", "mz"], help="자막 말투 변환 (mz=한국 MZ 말투, OpenAI 텍스트 모델)")
+    p.add_argument("--no-fx", action="store_true", help="work/<영상>/fx.json 예능 효과 끄기")
     p.add_argument("-v", "--verbose", action="store_true")
     return p
 
@@ -73,6 +76,12 @@ def apply_args(cfg: PipelineConfig, a: argparse.Namespace) -> PipelineConfig:
         cfg.subtitle_emphasis = a.subtitle_emphasis
     if a.fix:
         cfg.transcript_fixes = a.fix
+    if a.transcribe:
+        cfg.transcribe_provider = a.transcribe
+    if a.subtitle_tone is not None:
+        cfg.subtitle_tone = a.subtitle_tone
+    if a.no_fx:
+        cfg.fx = False
     return cfg
 
 

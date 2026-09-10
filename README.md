@@ -32,9 +32,16 @@ python -m video_pipeline 영상.mp4 --mode pip --no-overlays --no-mosaic
 python -m video_pipeline 영상.mp4 --blur-faces --mute-spoken-pii --fresh
 python -m video_pipeline 영상.mp4 --subtitles variety --subtitle-emphasis "곰돌이,말차"   # 예능 자막 번인
 python -m video_pipeline 영상.mp4 --fix "뱃살=곰돌이,마오차=말차" --steps render          # 전사 오류 교정 후 재렌더
+python -m video_pipeline 영상.mp4 --transcribe openai --subtitles variety --subtitle-tone mz   # API 전사 + MZ 말투 자막
 ```
 
 **자막 번인** — `--subtitles variety`는 흑백요리사 풍 예능 자막(NanumSquare ExtraBold, 흰 글자 + 두꺼운 검정 외곽선 + 그림자, 하단 중앙, 등장 시 팝)을 영상에 직접 입힌다. `--subtitle-emphasis`에 쉼표로 적은 단어는 노란색으로 강조된다. `clean`은 담백한 흰 자막. 환경변수 `SUBTITLE_STYLE`, `SUBTITLE_EMPHASIS`, `SUBTITLE_FONT`로도 설정할 수 있다. 폰트가 없으면 `fonts-nanum`(Linux) 또는 나눔스퀘어를 설치한다.
+
+**전사 방식** — 기본은 로컬 faster-whisper(GPU 권장). `--transcribe openai`(또는 `TRANSCRIBE_PROVIDER=openai`)를 주면 OpenAI `whisper-1` API로 전사한다. 단어 타임스탬프를 그대로 주므로 컷 편집에 차이가 없고, GPU 없는 환경에서 44초 → 10초로 빨라진다(41초 영상 기준). 오디오가 외부로 나가므로 민감한 영상은 로컬을 쓴다.
+
+**자막 말투** — `--subtitle-tone mz`는 OpenAI 텍스트 모델(`TEXT_MODEL`, 기본 gpt-4.1-mini)로 자막을 한국 MZ 말투로 바꾼다. 결과는 `work/<영상>/tone_mz.json`에 캐시되며, 이 파일의 `lines`를 손으로 고치면 다음 렌더에 그대로 반영된다. 배포 SRT도 변환된 말투로 나간다.
+
+**예능 효과** — `work/<영상>/fx.json`에 이벤트를 적으면 렌더가 읽는다(`--no-fx`로 끔). `zoom`(급 줌인 + '휙' 효과음), `flash`(흑백+비네트 플래시 + '두둥'), `caption`(상단 임팩트 자막, 노랑/흰/빨강). 형식은 `video_pipeline/fx.py` 상단 주석 참고.
 
 **전사 교정** — 음성 인식이 틀린 단어는 `--fix "잘못=바름,잘못2=바름2"`(또는 `TRANSCRIPT_FIXES`)로 바로잡는다. 캐시된 대본에 매번 적용되므로 `--steps render`만 다시 돌리면 자막(SRT·번인)과 리포트에 반영된다. 일러스트·아이콘 내용도 바꾸려면 `work/<영상>/plan.json`의 프롬프트를 고치고 `image_path`를 비운 뒤 렌더한다.
 
