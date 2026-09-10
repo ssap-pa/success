@@ -127,6 +127,16 @@
         <label class="opt">그림 생성
           <select id="o_provider"><option value="auto">자동</option><option value="openai">OpenAI</option><option value="placeholder">플레이스홀더</option></select></label>
       </div>
+      <div class="row" style="margin-top:10px">
+        <label class="opt">전사 방식
+          <select id="o_transcribe"><option value="local">로컬 whisper (GPU)</option><option value="openai">OpenAI whisper-1 API</option></select></label>
+        <label class="opt">자막 번인
+          <select id="o_sub_style"><option value="none">없음</option><option value="variety">예능 자막 (흑백요리사 풍)</option><option value="clean">담백한 흰 자막</option></select></label>
+        <label class="opt">자막 말투
+          <select id="o_sub_tone"><option value="">원문 그대로</option><option value="mz">MZ 말투 (OpenAI)</option></select></label>
+        <label class="opt">노란 강조어 <input type="text" id="o_sub_emph" placeholder="쉼표 구분: 곰돌이,말차" style="width:180px"></label>
+        <label class="opt">전사 교정 <input type="text" id="o_fixes" placeholder="잘못=바름,잘못2=바름2" style="width:200px"></label>
+      </div>
       <details>
         <summary>세부 조절</summary>
         <div class="row" style="margin-top:8px">
@@ -268,6 +278,9 @@ function options() {
     ocr_max_width: +$("o_ocr_w").value, ocr_skip_static: $("o_ocr_skip").checked,
     ocr_force_interval: +$("o_ocr_force").value,
     sfx: $("o_sfx").checked, sfx_volume: +$("o_sfx_vol").value, scene_position: $("o_scene_pos").value,
+    transcribe_provider: $("o_transcribe").value, subtitle_style: $("o_sub_style").value,
+    subtitle_tone: $("o_sub_tone").value, subtitle_emphasis: $("o_sub_emph").value.trim(),
+    transcript_fixes: $("o_fixes").value.trim(),
     scene_height: +$("o_scene_h").value, overlay_height: +$("o_overlay_h").value,
     image_workers: +$("o_img_workers").value, image_quality: $("o_img_quality").value,
   };
@@ -389,6 +402,11 @@ async function loadSettings() {
   if (d.scene_height) $("o_scene_h").value = d.scene_height;
   if (d.overlay_height) $("o_overlay_h").value = d.overlay_height;
   if (d.scene_position) $("o_scene_pos").value = d.scene_position;
+  if (d.transcribe_provider) $("o_transcribe").value = d.transcribe_provider;
+  if (d.subtitle_style) $("o_sub_style").value = d.subtitle_style;
+  if (d.subtitle_tone !== undefined) $("o_sub_tone").value = d.subtitle_tone;
+  if (d.subtitle_emphasis) $("o_sub_emph").value = d.subtitle_emphasis;
+  if (d.transcript_fixes) $("o_fixes").value = d.transcript_fixes;
 }
 
 async function saveSettings() {
