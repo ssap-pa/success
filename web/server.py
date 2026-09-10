@@ -64,6 +64,9 @@ OPTION_FIELDS = {
     "ocr_max_width": int, "ocr_skip_static": bool, "ocr_force_interval": float,
     "sfx": bool, "sfx_volume": float, "scene_height": float, "overlay_height": float, "scene_position": str,
     "image_workers": int, "image_quality": str,
+    # 자막·전사 (2026-09-10 추가)
+    "subtitle_style": str, "subtitle_tone": str, "subtitle_emphasis": str,
+    "transcript_fixes": str, "transcribe_provider": str,
 }
 
 
@@ -346,7 +349,9 @@ def api_settings_get():
     out["defaults"] = {k: (str(getattr(cfg, k)) if k != "quality" else cfg.quality)
                        for k in ("illustration_mode", "whisper_model", "min_silence", "keep_silence",
                                  "max_scenes_per_min", "max_overlays_per_min", "ocr_interval", "quality",
-                                 "scene_height", "overlay_height", "scene_position")}
+                                 "scene_height", "overlay_height", "scene_position",
+                                 "transcribe_provider", "subtitle_style", "subtitle_tone",
+                                 "subtitle_emphasis", "transcript_fixes")}
     out["gpu"] = _gpu_name()
     return jsonify(out)
 
